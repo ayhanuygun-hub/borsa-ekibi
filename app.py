@@ -1,21 +1,18 @@
-from flask import Flask, jsonify, request, send_file # send_file ekledik
-# ... diğer importlar ...
-
-# ANA SAYFA ROTASI (Bunu ekle)
-@app.route('/')
-def ana_sayfa():
-    return send_file('index.html')
+import os
 import threading
 import time
-from flask import Flask, jsonify, request, send_file
-import yfinance as yf
-from flask_cors import CORS
-import json, os, io
+import json
+import io
 import pandas as pd
+import yfinance as yf
+from flask import Flask, jsonify, request, send_file
+from flask_cors import CORS
 
+# 1. Önce Flask uygulamasını oluşturuyoruz (Hatanın çözümü burası)
 app = Flask(__name__)
 CORS(app)
 
+# 2. Değişkenler ve Veritabanı Ayarları
 DB_FILE = "veritabani.json"
 fiyat_deposu = {}
 veri_kilidi = threading.Lock()
@@ -34,15 +31,14 @@ def veriyi_kaydet():
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(sistem, f, ensure_ascii=False, indent=4)
 
+# 3. Arka Plan Fiyat Güncelleyici
 def fiyatlari_guncelle_loop():
     global fiyat_deposu
     while True:
         with veri_kilidi:
             semboller = list(sistem["takip_listesi"].keys())
-        
         if semboller:
             try:
-                # Toplu çekim yaparak hızı artırıyoruz
                 data = yf.download(semboller, period="1d", interval="1m", progress=False)['Close']
                 for s in semboller:
                     try:
@@ -53,6 +49,12 @@ def fiyatlari_guncelle_loop():
         time.sleep(30)
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
+
+# 4. ROTALAR (Routes) - app tanımlandıktan sonra yazılmalı
+@app.route('/')
+def ana_sayfa():
+    # Render üzerinde index.html dosyasını göndermek için
+    return send_file('index.html')
 
 @app.route('/giris-yap', methods=['POST'])
 def login():
@@ -75,20 +77,6 @@ def add_hisse():
         veriyi_kaydet()
     return jsonify({"durum": "tamam"})
 
-@app.route('/adet-guncelle', methods=['POST'])
-def update_amount():
-    data = request.json
-    user = data.get("kullanici").strip()
-    hisse = data.get("hisse").upper()
-    with veri_kilidi:
-        if user not in sistem["kullanicilar"]: sistem["kullanicilar"][user] = {}
-        sistem["kullanicilar"][user][hisse] = {
-            "adet": int(data.get("adet", 0)),
-            "maliyet": float(data.get("maliyet", 0))
-        }
-        veriyi_kaydet()
-    return jsonify({"durum": "guncellendi"})
-
 @app.route('/borsa-verileri')
 def get_data():
     veriler = []
@@ -105,7 +93,21 @@ def get_data():
         })
     return jsonify({"hisseler": veriler, "ekip": ekip})
 
+@app.route('/adet-guncelle', methods=['POST'])
+def update_amount():
+    data = request.json
+    user = data.get("kullanici", "").strip()
+    hisse = data.get("hisse", "").upper()
+    with veri_kilidi:
+        if user not in sistem["kullanicilar"]: sistem["kullanicilar"][user] = {}
+        sistem["kullanicilar"][user][hisse] = {
+            "adet": int(data.get("adet", 0)),
+            "maliyet": float(data.get("maliyet", 0))
+        }
+        veriyi_kaydet()
+    return jsonify({"durum": "guncellendi"})
+
 if __name__ == '__main__':
-    # Render'ın portunu otomatik alması için PORT değişkeni ekledik
+    # Render port ayarı
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
