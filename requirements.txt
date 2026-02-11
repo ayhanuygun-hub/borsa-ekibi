@@ -4,3 +4,5 @@ yfinance
 pandas
 openpyxl
 gunicorn
+pymongo[srv]
+dnspython

@@ -2,160 +2,230 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Ekip Terminali v5.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borsa Ekip Terminali v5.1 - Final</title>
     <script src="https://meet.jit.si/external_api.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --buy: #22c55e; --sell: #ef4444; --text: #f8fafc; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* KURULUM EKRANI */
         #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 999; display: flex; align-items: center; justify-content: center; }
-        .setup-card { background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid var(--accent); width: 350px; text-align: center; }
+        .setup-card { background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid var(--accent); width: 350px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        
+        /* PANEL YAPISI */
         .sidebar { width: 35%; border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; background: #111827; }
-        .main-content { width: 65%; display: flex; background: #000; position: relative; }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 5px solid var(--accent); }
+        .main-content { width: 65%; display: flex; flex-direction: column; background: #000; position: relative; }
+        
+        /* BİLEŞENLER */
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 5px solid var(--accent); position: relative; }
         .active-buy { border-left-color: var(--buy); background: #064e3b !important; }
-        input { width: 100%; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
-        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; }
-        .btn-success { background: var(--buy); color: white; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; transition: 0.2s; }
         .btn-primary { background: var(--accent); color: white; }
-        .portfolio-box { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; border: 1px solid #334155; }
+        .btn-success { background: var(--buy); color: white; }
+        .btn-danger { background: var(--sell); color: white; }
+
+        /* PORTFÖY DETAYLARI */
+        .portfolio-box { background: rgba(15, 23, 42, 0.7); padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; border: 1px solid #334155; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
         .kz-pos { color: var(--buy); font-weight: bold; }
         .kz-neg { color: var(--sell); font-weight: bold; }
-        #video-container { flex-grow: 1; }
+        
+        #video-container { flex-grow: 1; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
 <div id="setup-layer">
     <div class="setup-card">
-        <h2>🚀 Sisteme Giriş</h2>
+        <h2 style="color: var(--accent);">📊 Ekip Terminali</h2>
         <input type="text" id="setup-name" placeholder="Adınız Soyadınız">
-        <select id="setup-role" style="width:100%; padding:10px; border-radius:5px; background:#0f172a; color:white;">
+        <select id="setup-role">
             <option value="kullanici">Kullanıcı</option>
             <option value="yonetici">Yönetici</option>
         </select>
         <input type="password" id="setup-pass" placeholder="Grup Şifresi">
-        <button class="btn-primary" style="width:100%; margin-top:15px;" onclick="sistemiKur()">GİRİŞ YAP</button>
+        <button class="btn-primary" style="width:100%; margin-top:15px;" onclick="sistemiKur()">Giriş Yap</button>
     </div>
 </div>
 
 <div class="sidebar">
-    <div style="border-bottom: 2px solid var(--accent); padding-bottom:10px; margin-bottom:20px;">
+    <div id="user-info" style="margin-bottom: 20px; border-bottom: 2px solid var(--accent); padding-bottom: 10px;">
         <h3 id="display-name" style="margin:0;">...</h3>
-        <small id="display-role" style="color:var(--accent); font-weight:bold;"></small>
+        <small id="display-role" style="color: var(--accent); font-weight:bold;"></small>
     </div>
 
     <div id="admin-area" style="display:none;" class="card">
-        <strong>Yönetici Sinyali</strong>
-        <input type="text" id="h-kod" placeholder="Hisse (Örn: THYAO)">
-        <input type="number" id="h-hedef" placeholder="Alım Hedefi">
-        <button class="btn-success" style="width:100%" onclick="yayinla()">YAYINLA</button>
+        <strong style="display:block; margin-bottom:8px;">Hisse & Sinyal Yönetimi</strong>
+        <input type="text" id="hisse-kod" placeholder="Hisse (Örn: THYAO)">
+        <input type="number" id="hisse-hedef" placeholder="Alım Hedefi">
+        <button class="btn-success" style="width:100%" onclick="hisseYayinla()">YAYINLA</button>
+        <button class="btn-primary" style="width:100%; margin-top:10px;" onclick="excelIndir()">📊 EXCEL RAPORU İNDİR</button>
     </div>
 
-    <div id="stock-list"></div>
+    <div id="stock-list-container">
+        <h4 style="margin-bottom:15px; border-left:4px solid var(--accent); padding-left:10px;">📉 Sinyaller & Portföyünüz</h4>
+        <div id="stock-list"></div>
+    </div>
+
+    <div id="admin-summary" style="display:none; margin-top:25px;">
+        <h4 style="border-left: 4px solid var(--buy); padding-left: 10px;">👥 Ekip Portföy Durumu</h4>
+        <div id="summary-content"></div>
+    </div>
 </div>
 
 <div class="main-content">
-    <div id="video-container"></div>
-    <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%);">
-        <button class="btn-primary" onclick="startMeeting()">GÖRÜŞMEYİ BAŞLAT</button>
+    <div id="meet-overlay" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; z-index:10;">
+        <button class="btn-primary" style="padding:15px 40px; font-size:1.1rem;" onclick="startMeeting()">📞 GÖRÜŞMEYİ BAŞLAT</button>
     </div>
+    <div id="video-container"></div>
 </div>
 
 <script>
+    let myName = localStorage.getItem("name");
+    let myRole = localStorage.getItem("role");
+
+    // SİSTEM KURULUMU / GİRİŞ
     async function sistemiKur() {
         const name = document.getElementById('setup-name').value.trim();
         const role = document.getElementById('setup-role').value;
         const pass = document.getElementById('setup-pass').value.trim();
-        if(!name || !pass) return alert("Eksik bilgi!");
 
-        const resp = await fetch('/giris-yap', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({rol: role, sifre: pass})
-        });
+        if(!name || !pass) return alert("Lütfen bilgileri doldurun!");
 
-        if(resp.ok) {
-            localStorage.setItem("name", name);
-            localStorage.setItem("role", role);
-            location.reload();
-        } else alert("Şifre yanlış!");
+        try {
+            const resp = await fetch('/giris-yap', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({rol: role, sifre: pass})
+            });
+
+            if(resp.ok) {
+                localStorage.setItem("name", name);
+                localStorage.setItem("role", role);
+                location.reload();
+            } else {
+                alert("Hatalı şifre!");
+            }
+        } catch (e) { alert("Sunucu bağlantı hatası!"); }
     }
-
-    let myName = localStorage.getItem("name");
-    let myRole = localStorage.getItem("role");
 
     if(myName && myRole) {
         document.getElementById('setup-layer').style.display = 'none';
-        document.getElementById('display-name').innerText = myName;
-        document.getElementById('display-role').innerText = myRole.toUpperCase();
-        if(myRole === 'yonetici') document.getElementById('admin-area').style.display = 'block';
-        
-        verileriYenile();
-        setInterval(verileriYenile, 30000); 
+        baslat();
     }
 
+    function baslat() {
+        document.getElementById('display-name').innerText = myName;
+        document.getElementById('display-role').innerText = myRole.toUpperCase();
+        if(myRole === 'yonetici') {
+            document.getElementById('admin-area').style.display = 'block';
+            document.getElementById('admin-summary').style.display = 'block';
+        }
+        verileriYenile();
+        setInterval(verileriYenile, 60000); 
+    }
+
+    // VERİLERİ YENİLE
     async function verileriYenile() {
         try {
             const resp = await fetch('/borsa-verileri');
             const data = await resp.json();
-            const list = document.getElementById('stock-list');
-            list.innerHTML = "<h4>📈 Takip & Portföy</h4>";
-
+            
+            const sList = document.getElementById('stock-list');
+            sList.innerHTML = "";
+            
             data.hisseler.forEach(h => {
                 const isAL = h.durum === "AL";
                 const userStats = data.ekip[myName] ? data.ekip[myName][h.sembol] : null;
                 
-                let pHTML = "";
+                let portfolioHTML = "";
                 if(userStats && userStats.adet > 0) {
-                    const toplamVal = h.fiyat * userStats.adet;
-                    const kz = (h.fiyat - userStats.maliyet) * userStats.adet;
-                    pHTML = `
+                    const toplamDeger = h.fiyat * userStats.adet;
+                    const karZarar = (h.fiyat - userStats.maliyet) * userStats.adet;
+                    const kzClass = karZarar >= 0 ? "kz-pos" : "kz-neg";
+
+                    portfolioHTML = `
                         <div class="portfolio-box">
-                            <div style="display:flex; justify-content:space-between;"><span>Adet:</span> <span>${userStats.adet}</span></div>
-                            <div style="display:flex; justify-content:space-between;"><span>Maliyet:</span> <span>${userStats.maliyet} TL</span></div>
-                            <div style="display:flex; justify-content:space-between; border-top:1px solid #444; margin-top:5px; padding-top:5px;">
-                                <strong>Toplam:</strong> <strong>${toplamVal.toFixed(2)} TL</strong>
+                            <div class="info-row"><span>Adet:</span> <span>${userStats.adet}</span></div>
+                            <div class="info-row"><span>Maliyet:</span> <span>${userStats.maliyet.toFixed(2)} TL</span></div>
+                            <div class="info-row" style="border-top:1px solid #334155; margin-top:5px; padding-top:5px;">
+                                <strong>Değer:</strong> <span>${toplamDeger.toFixed(2)} TL</span>
                             </div>
-                            <div style="display:flex; justify-content:space-between;">
-                                <span>K/Z:</span> <span class="${kz >= 0 ? 'kz-pos' : 'kz-neg'}">${kz.toFixed(2)} TL</span>
+                            <div class="info-row">
+                                <strong>K/Z:</strong> <span class="${kzClass}">${karZarar.toFixed(2)} TL</span>
                             </div>
-                        </div>`;
+                        </div>
+                    `;
                 }
 
-                list.innerHTML += `
+                sList.innerHTML += `
                     <div class="card ${isAL ? 'active-buy' : ''}">
-                        <div style="display:flex; justify-content:space-between;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
                             <strong>${h.sembol}</strong>
-                            <small>${isAL ? '🔥 AL' : 'BEKLE'}</small>
+                            ${myRole === 'yonetici' ? `<button onclick="hisseSil('${h.sembol}')" class="btn-danger" style="padding:2px 8px; font-size:10px;">SİL</button>` : `<small>${isAL ? '🔥 AL' : 'BEKLE'}</small>`}
                         </div>
-                        <div style="font-size:1.4rem; font-weight:bold;">${h.fiyat > 0 ? h.fiyat.toFixed(2) : '...'} TL</div>
-                        <small>Hedef: ${h.hedef} TL</small>
-                        ${pHTML}
+                        <div style="font-size:1.4rem; font-weight:bold; margin:5px 0;">${h.fiyat > 0 ? h.fiyat.toFixed(2) + ' TL' : 'Veri Bekleniyor...'}</div>
+                        <small style="opacity:0.8;">Hedef: ${h.hedef.toFixed(2)} TL</small>
+                        ${portfolioHTML}
                         ${myRole === 'kullanici' ? `
-                            <div style="display:flex; gap:4px; margin-top:10px;">
-                                <input type="number" id="q-${h.sembol}" placeholder="Adet" value="${userStats ? userStats.adet : ''}">
-                                <input type="number" id="c-${h.sembol}" placeholder="Maliyet" value="${userStats ? userStats.maliyet : ''}">
-                                <button class="btn-success" onclick="guncelle('${h.sembol}')">💾</button>
-                            </div>` : ''}
-                    </div>`;
+                            <div style="display:flex; gap:5px; margin-top:10px;">
+                                <input type="number" id="qty-${h.sembol}" placeholder="Adet" value="${userStats ? userStats.adet : ''}">
+                                <input type="number" id="cost-${h.sembol}" placeholder="Maliyet" value="${userStats ? userStats.maliyet : ''}">
+                                <button class="btn-success" onclick="portfoyGuncelle('${h.sembol}')">💾</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
             });
-        } catch(e) { console.error(e); }
+
+            if(myRole === 'yonetici') guncelleYoneticiOzeti(data);
+        } catch (e) { console.error("Veri yenileme hatası:", e); }
     }
 
-    async function guncelle(h) {
-        const adet = document.getElementById(`q-${h}`).value;
-        const maliyet = document.getElementById(`c-${h}`).value;
+    async function portfoyGuncelle(hisseKod) {
+        const adet = document.getElementById(`qty-${hisseKod}`).value;
+        const maliyet = document.getElementById(`cost-${hisseKod}`).value;
+        if(!adet || !maliyet) return alert("Adet ve maliyet girin!");
+
         await fetch('/adet-guncelle', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({kullanici: myName, hisse: h, adet, maliyet})
+            body: JSON.stringify({kullanici: myName, hisse: hisseKod, adet, maliyet})
         });
         verileriYenile();
     }
 
-    async function yayinla() {
-        const hisse = document.getElementById('h-kod').value.toUpperCase();
-        const hedef = document.getElementById('h-hedef').value;
+    function guncelleYoneticiOzeti(data) {
+        const summaryDiv = document.getElementById('summary-content');
+        summaryDiv.innerHTML = "";
+        for (const [user, assets] of Object.entries(data.ekip)) {
+            let userKZ = 0;
+            let rows = Object.entries(assets).map(([h, info]) => {
+                const current = data.hisseler.find(sh => sh.sembol === h)?.fiyat || 0;
+                const kz = (current - info.maliyet) * info.adet;
+                userKZ += kz;
+                return `<div>${h}: ${info.adet} ad. (K/Z: ${kz.toFixed(0)} TL)</div>`;
+            }).join('');
+            
+            summaryDiv.innerHTML += `
+                <div style="background:#1e293b; padding:10px; border-radius:8px; margin-bottom:10px; font-size:0.8rem; border:1px solid #334155;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <strong style="color:var(--accent)">${user}</strong>
+                        <span class="${userKZ >= 0 ? 'kz-pos' : 'kz-neg'}">${userKZ.toFixed(0)} TL</span>
+                    </div>
+                    <div style="margin-top:5px; opacity:0.7; font-size:0.75rem;">${rows || 'Hisse yok'}</div>
+                </div>
+            `;
+        }
+    }
+
+    async function hisseYayinla() {
+        const hisse = document.getElementById('hisse-kod').value.trim().toUpperCase();
+        const hedef = document.getElementById('hisse-hedef').value;
+        if(!hisse || !hedef) return alert("Eksik bilgi!");
+
         await fetch('/hisse-ekle', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -164,9 +234,23 @@
         verileriYenile();
     }
 
+    async function hisseSil(kod) {
+        if(!confirm(kod + " silinecek?")) return;
+        await fetch('/hisse-sil', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({hisse: kod})
+        });
+        verileriYenile();
+    }
+
+    function excelIndir() { window.location.href = '/excel-indir'; }
+
     function startMeeting() {
+        document.getElementById('meet-overlay').style.display = 'none';
         new JitsiMeetExternalAPI("meet.jit.si", {
-            roomName: "BorsaOda_Hizli_V5",
+            roomName: "BorsaEkibi_V5_Final",
+            width: "100%", height: "100%",
             parentNode: document.querySelector('#video-container')
         });
     }
