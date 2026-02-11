@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Borsa Ekip Terminali v5.0</title>
+    <script src="https://meet.jit.si/external_api.js"></script>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --buy: #22c55e; --sell: #ef4444; --text: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; }
+        #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 999; display: flex; align-items: center; justify-content: center; }
+        .setup-card { background: var(--card); padding: 30px; border-radius: 15px; border: 1px solid var(--accent); width: 350px; text-align: center; }
+        .sidebar { width: 35%; border-right: 1px solid #334155; display: flex; flex-direction: column; padding: 15px; overflow-y: auto; background: #111827; }
+        .main-content { width: 65%; display: flex; background: #000; position: relative; }
+        .card { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 5px solid var(--accent); }
+        .active-buy { border-left-color: var(--buy); background: #064e3b !important; }
+        input { width: 100%; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white; box-sizing: border-box; }
+        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; }
+        .btn-success { background: var(--buy); color: white; }
+        .btn-primary { background: var(--accent); color: white; }
+        .portfolio-box { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; border: 1px solid #334155; }
+        .kz-pos { color: var(--buy); font-weight: bold; }
+        .kz-neg { color: var(--sell); font-weight: bold; }
+        #video-container { flex-grow: 1; }
+    </style>
+</head>
+<body>
+
+<div id="setup-layer">
+    <div class="setup-card">
+        <h2>🚀 Sisteme Giriş</h2>
+        <input type="text" id="setup-name" placeholder="Adınız Soyadınız">
+        <select id="setup-role" style="width:100%; padding:10px; border-radius:5px; background:#0f172a; color:white;">
+            <option value="kullanici">Kullanıcı</option>
+            <option value="yonetici">Yönetici</option>
+        </select>
+        <input type="password" id="setup-pass" placeholder="Grup Şifresi">
+        <button class="btn-primary" style="width:100%; margin-top:15px;" onclick="sistemiKur()">GİRİŞ YAP</button>
+    </div>
+</div>
+
+<div class="sidebar">
+    <div style="border-bottom: 2px solid var(--accent); padding-bottom:10px; margin-bottom:20px;">
+        <h3 id="display-name" style="margin:0;">...</h3>
+        <small id="display-role" style="color:var(--accent); font-weight:bold;"></small>
+    </div>
+
+    <div id="admin-area" style="display:none;" class="card">
+        <strong>Yönetici Sinyali</strong>
+        <input type="text" id="h-kod" placeholder="Hisse (Örn: THYAO)">
+        <input type="number" id="h-hedef" placeholder="Alım Hedefi">
+        <button class="btn-success" style="width:100%" onclick="yayinla()">YAYINLA</button>
+    </div>
+
+    <div id="stock-list"></div>
+</div>
+
+<div class="main-content">
+    <div id="video-container"></div>
+    <div style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%);">
+        <button class="btn-primary" onclick="startMeeting()">GÖRÜŞMEYİ BAŞLAT</button>
+    </div>
+</div>
+
+<script>
+    async function sistemiKur() {
+        const name = document.getElementById('setup-name').value.trim();
+        const role = document.getElementById('setup-role').value;
+        const pass = document.getElementById('setup-pass').value.trim();
+        if(!name || !pass) return alert("Eksik bilgi!");
+
+        const resp = await fetch('/giris-yap', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({rol: role, sifre: pass})
+        });
+
+        if(resp.ok) {
+            localStorage.setItem("name", name);
+            localStorage.setItem("role", role);
+            location.reload();
+        } else alert("Şifre yanlış!");
+    }
+
+    let myName = localStorage.getItem("name");
+    let myRole = localStorage.getItem("role");
+
+    if(myName && myRole) {
+        document.getElementById('setup-layer').style.display = 'none';
+        document.getElementById('display-name').innerText = myName;
+        document.getElementById('display-role').innerText = myRole.toUpperCase();
+        if(myRole === 'yonetici') document.getElementById('admin-area').style.display = 'block';
+        
+        verileriYenile();
+        setInterval(verileriYenile, 30000); 
+    }
+
+    async function verileriYenile() {
+        try {
+            const resp = await fetch('/borsa-verileri');
+            const data = await resp.json();
+            const list = document.getElementById('stock-list');
+            list.innerHTML = "<h4>📈 Takip & Portföy</h4>";
+
+            data.hisseler.forEach(h => {
+                const isAL = h.durum === "AL";
+                const userStats = data.ekip[myName] ? data.ekip[myName][h.sembol] : null;
+                
+                let pHTML = "";
+                if(userStats && userStats.adet > 0) {
+                    const toplamVal = h.fiyat * userStats.adet;
+                    const kz = (h.fiyat - userStats.maliyet) * userStats.adet;
+                    pHTML = `
+                        <div class="portfolio-box">
+                            <div style="display:flex; justify-content:space-between;"><span>Adet:</span> <span>${userStats.adet}</span></div>
+                            <div style="display:flex; justify-content:space-between;"><span>Maliyet:</span> <span>${userStats.maliyet} TL</span></div>
+                            <div style="display:flex; justify-content:space-between; border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+                                <strong>Toplam:</strong> <strong>${toplamVal.toFixed(2)} TL</strong>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span>K/Z:</span> <span class="${kz >= 0 ? 'kz-pos' : 'kz-neg'}">${kz.toFixed(2)} TL</span>
+                            </div>
+                        </div>`;
+                }
+
+                list.innerHTML += `
+                    <div class="card ${isAL ? 'active-buy' : ''}">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong>${h.sembol}</strong>
+                            <small>${isAL ? '🔥 AL' : 'BEKLE'}</small>
+                        </div>
+                        <div style="font-size:1.4rem; font-weight:bold;">${h.fiyat > 0 ? h.fiyat.toFixed(2) : '...'} TL</div>
+                        <small>Hedef: ${h.hedef} TL</small>
+                        ${pHTML}
+                        ${myRole === 'kullanici' ? `
+                            <div style="display:flex; gap:4px; margin-top:10px;">
+                                <input type="number" id="q-${h.sembol}" placeholder="Adet" value="${userStats ? userStats.adet : ''}">
+                                <input type="number" id="c-${h.sembol}" placeholder="Maliyet" value="${userStats ? userStats.maliyet : ''}">
+                                <button class="btn-success" onclick="guncelle('${h.sembol}')">💾</button>
+                            </div>` : ''}
+                    </div>`;
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    async function guncelle(h) {
+        const adet = document.getElementById(`q-${h}`).value;
+        const maliyet = document.getElementById(`c-${h}`).value;
+        await fetch('/adet-guncelle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({kullanici: myName, hisse: h, adet, maliyet})
+        });
+        verileriYenile();
+    }
+
+    async function yayinla() {
+        const hisse = document.getElementById('h-kod').value.toUpperCase();
+        const hedef = document.getElementById('h-hedef').value;
+        await fetch('/hisse-ekle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({hisse, hedef})
+        });
+        verileriYenile();
+    }
+
+    function startMeeting() {
+        new JitsiMeetExternalAPI("meet.jit.si", {
+            roomName: "BorsaOda_Hizli_V5",
+            parentNode: document.querySelector('#video-container')
+        });
+    }
+</script>
+</body>
+</html>
