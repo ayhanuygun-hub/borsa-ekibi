@@ -1,3 +1,10 @@
+from flask import Flask, jsonify, request, send_file # send_file ekledik
+# ... diğer importlar ...
+
+# ANA SAYFA ROTASI (Bunu ekle)
+@app.route('/')
+def ana_sayfa():
+    return send_file('index.html')
 import threading
 import time
 from flask import Flask, jsonify, request, send_file
