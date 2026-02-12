@@ -8,7 +8,7 @@ CORS(app)
 
 # --- MONGODB BAĞLANTISI ---
 # Buraya Atlas'tan aldığınız bağlantı linkini yapıştırın
-MONGO_URI = mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0
+MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
 client = MongoClient(MONGO_URI)
 db = client['borsa_takip']
 collection = db['veriler']
@@ -93,4 +93,5 @@ def excel_indir():
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
+
     app.run(host='0.0.0.0', port=port)
