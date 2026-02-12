@@ -6,3 +6,4 @@ openpyxl
 gunicorn
 pymongo[srv]
 dnspython
+requests
