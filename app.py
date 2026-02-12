@@ -1,5 +1,5 @@
 
-import os, threading, time, io, json, pandas as pd, yfinance as yf, requests
+import os, threading, time, io, json, pandas as pd, requests
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
@@ -7,21 +7,27 @@ from pymongo import MongoClient
 app = Flask(__name__)
 CORS(app)
 
-# --- MONGODB AYARI ---
+# --- AYARLAR ---
 MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
+import os
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY") # finnhub.io adresinden ücretsiz alın
+
 client = MongoClient(MONGO_URI)
 db = client['borsa_takip']
 collection = db['veriler']
 
 fiyat_deposu = {}
-veri_kilidi = threading.Lock()
 
 def veriyi_yukle():
     data = collection.find_one({"_id": "sistem_verisi"})
     if not data:
         data = {
-            "_id": "sistem_verisi", "yonetici_sifre": "1234", "grup_sifre": "1234",
-            "takip_listesi": {}, "kullanicilar": {}, "mesajlar": []
+            "_id": "sistem_verisi",
+            "yonetici_sifre": "admin123", # İlk giriş için yönetici şifresi
+            "kullanicilar": {}, # Kullanıcı adı: Şifre eşleşmesi
+            "takip_listesi": {}, # Hisse: Hedef
+            "portfoyler": {}, # Kullanıcı: {Hisse: {adet, maliyet}}
+            "mesajlar": []
         }
         collection.insert_one(data)
     return data
@@ -29,37 +35,56 @@ def veriyi_yukle():
 def veriyi_kaydet(sistem):
     collection.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# CANLI VERİ ÇEKME (Render Engelini Aşmak İçin Geliştirildi)
+# --- FINNHUB İLE CANLI VERİ ÇEKME ---
 def fiyatlari_guncelle_loop():
     global fiyat_deposu
-    # Tarayıcı gibi davranmak için header ekliyoruz
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-    
     while True:
         try:
             sistem = veriyi_yukle()
             semboller = list(sistem["takip_listesi"].keys())
-            if semboller:
-                # Yahoo Finance toplu çekim
-                data = yf.download(semboller, period="1d", interval="1m", progress=False)
-                for s in semboller:
-                    try:
-                        if len(semboller) > 1:
-                            val = data['Close'][s].iloc[-1]
-                        else:
-                            val = data['Close'].iloc[-1]
-                        
-                        if not pd.isna(val):
-                            fiyat_deposu[s] = round(float(val), 2)
-                    except: continue
+            for s in semboller:
+                # Finnhub API Formatı (BIST hisseleri için THYAO.IS gibi kullanılır)
+                url = f"https://finnhub.io/api/v1/quote?symbol={s}&token={FINNHUB_API_KEY}"
+                r = requests.get(url)
+                if r.status_code == 200:
+                    data = r.json()
+                    current_price = data.get('c', 0) # 'c' = Current Price
+                    if current_price > 0:
+                        fiyat_deposu[s] = round(float(current_price), 2)
+                time.sleep(1.5) # API limitlerine takılmamak için (Saniyede 1-2 istek)
         except Exception as e:
-            print(f"Borsa Veri Hatası: {e}")
+            print(f"Finnhub Hatası: {e}")
         time.sleep(60)
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
+# --- ROTALAR ---
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
+
+@app.route('/giris-yap', methods=['POST'])
+def login():
+    data = request.json
+    sistem = veriyi_yukle()
+    user = data.get("user")
+    sifre = data.get("sifre")
+    rol = data.get("rol")
+
+    if rol == "yonetici":
+        if sifre == sistem["yonetici_sifre"]: return jsonify({"durum": "basarili"})
+    else:
+        # Bireysel kullanıcı şifre kontrolü
+        if user in sistem["kullanicilar"] and sistem["kullanicilar"][user] == sifre:
+            return jsonify({"durum": "basarili"})
+    return jsonify({"durum": "hata"}), 401
+
+@app.route('/kullanici-ekle', methods=['POST'])
+def add_user():
+    data = request.json
+    sistem = veriyi_yukle()
+    sistem["kullanicilar"][data['username']] = data['password']
+    veriyi_kaydet(sistem)
+    return jsonify({"durum": "ok"})
 
 @app.route('/borsa-verileri')
 def get_data():
@@ -73,19 +98,9 @@ def get_data():
             "durum": "AL" if 0 < anlik <= hedef else "BEKLE"
         })
     return jsonify({
-        "hisseler": veriler, "ekip": sistem["kullanicilar"], 
+        "hisseler": veriler, "portfoyler": sistem["portfoyler"], 
         "mesajlar": sistem.get("mesajlar", [])[-30:]
     })
-
-@app.route('/giris-yap', methods=['POST'])
-def login():
-    data = request.json
-    sistem = veriyi_yukle()
-    if data.get("rol") == "yonetici" and data.get("sifre") == sistem["yonetici_sifre"]:
-        return jsonify({"durum": "basarili"})
-    if data.get("sifre") == sistem["grup_sifre"]:
-        return jsonify({"durum": "basarili"})
-    return jsonify({"durum": "hata"}), 401
 
 @app.route('/hisse-ekle', methods=['POST'])
 def add_hisse():
@@ -110,10 +125,10 @@ def delete_hisse():
 @app.route('/adet-guncelle', methods=['POST'])
 def update_amount():
     data = request.json
-    user, hisse = data.get("kullanici").strip(), data.get("hisse").upper()
+    user, hisse = data.get("kullanici"), data.get("hisse").upper()
     sistem = veriyi_yukle()
-    if user not in sistem["kullanicilar"]: sistem["kullanicilar"][user] = {}
-    sistem["kullanicilar"][user][hisse] = {"adet": int(data.get("adet", 0)), "maliyet": float(data.get("maliyet", 0))}
+    if user not in sistem["portfoyler"]: sistem["portfoyler"][user] = {}
+    sistem["portfoyler"][user][hisse] = {"adet": int(data.get("adet", 0)), "maliyet": float(data.get("maliyet", 0))}
     veriyi_kaydet(sistem)
     return jsonify({"durum": "guncellendi"})
 
@@ -121,7 +136,6 @@ def update_amount():
 def send_msg():
     data = request.json
     sistem = veriyi_yukle()
-    if "mesajlar" not in sistem: sistem["mesajlar"] = []
     sistem["mesajlar"].append({"user": data['user'], "text": data['text'], "time": time.strftime("%H:%M")})
     veriyi_kaydet(sistem)
     return jsonify({"durum": "ok"})
@@ -130,7 +144,7 @@ def send_msg():
 def export():
     sistem = veriyi_yukle()
     rows = []
-    for u, assets in sistem["kullanicilar"].items():
+    for u, assets in sistem["portfoyler"].items():
         for s, info in assets.items():
             cur = fiyat_deposu.get(s + ".IS", 0)
             rows.append({"Kullanıcı": u, "Hisse": s, "Adet": info['adet'], "Maliyet": info['maliyet'], "Güncel": cur, "K/Z": round((cur-info['maliyet'])*info['adet'], 2)})
@@ -138,7 +152,7 @@ def export():
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine='openpyxl') as w: df.to_excel(w, index=False)
     out.seek(0)
-    return send_file(out, download_name="Ekip_Portfoy.xlsx", as_attachment=True)
+    return send_file(out, download_name="Ekip_Raporu.xlsx", as_attachment=True)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
