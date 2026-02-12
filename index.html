@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Terminali v7.0 - Finnhub & Güvenli Giriş</title>
+    <title>Borsa Terminali v7.1 - Final Build</title>
     <script src="https://meet.jit.si/external_api.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #161e2d; --accent: #38bdf8; --buy: #10b981; --sell: #f43f5e; --text: #f1f5f9; }
@@ -17,12 +17,13 @@
 
         .card { background: var(--card); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid var(--accent); }
         input, select { width: 100%; padding: 8px; margin: 5px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; box-sizing: border-box; }
-        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; transition: 0.3s; }
+        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; width: 100%; transition: 0.3s; }
         .btn-primary { background: var(--accent); color: #000; }
-        .btn-success { background: var(--buy); color: white; }
-        
+        .btn-danger { background: var(--sell); color: white; }
+        .btn-logout { background: transparent; color: #94a3b8; border: 1px solid #334155; font-size: 0.7rem; padding: 4px; width: auto; }
+        .btn-logout:hover { background: var(--sell); color: white; border-color: var(--sell); }
+
         #chat-content { flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 0.85rem; }
-        .msg { margin-bottom: 8px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
         .kz-pos { color: var(--buy); } .kz-neg { color: var(--sell); }
     </style>
 </head>
@@ -30,33 +31,36 @@
 
 <div id="setup-layer">
     <div class="setup-card">
-        <h3>📊 Ekip Girişi</h3>
+        <h3>📊 Ekip Terminali</h3>
         <input type="text" id="setup-name" placeholder="Kullanıcı Adı">
         <input type="password" id="setup-pass" placeholder="Şifre">
         <select id="setup-role">
-            <option value="kullanici">Kullanıcı Olarak Gir</option>
-            <option value="yonetici">Yönetici Olarak Gir</option>
+            <option value="kullanici">Kullanıcı Girişi</option>
+            <option value="yonetici">Yönetici Girişi</option>
         </select>
         <button class="btn-primary" onclick="sistemiKur()">GİRİŞ YAP</button>
     </div>
 </div>
 
 <div class="col-left">
-    <h4>📉 Canlı Sinyaller</h4>
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--accent); padding-bottom:10px; margin-bottom:15px;">
+        <h4 style="margin:0;">📉 Sinyaller</h4>
+        <button class="btn-logout" onclick="cikisyap()">Çıkış Yap</button>
+    </div>
     <div id="stock-list"></div>
     
-    <div id="admin-panel" style="display:none; margin-top:20px; border-top: 2px solid var(--accent); padding-top:15px;">
+    <div id="admin-panel" style="display:none; border-top: 2px solid var(--accent); padding-top:15px; margin-top:15px;">
         <strong>📢 Sinyal Yönetimi</strong>
-        <input type="text" id="h-kod" placeholder="Hisse (Örn: THYAO)">
+        <input type="text" id="h-kod" placeholder="Hisse (THYAO)">
         <input type="number" id="h-hedef" placeholder="Hedef Alım">
-        <button class="btn-success" onclick="hisseEkle()">YAYINLA</button>
+        <button class="btn-primary" style="background:var(--buy); color:white;" onclick="hisseEkle()">YAYINLA</button>
         
-        <strong style="display:block; margin-top:20px;">👤 Kullanıcı Tanımla</strong>
-        <input type="text" id="new-user" placeholder="Yeni Kullanıcı Adı">
-        <input type="text" id="new-pass" placeholder="Şifre Belirle">
-        <button class="btn-primary" onclick="kullaniciEkle()">KULLANICIYI KAYDET</button>
+        <strong style="display:block; margin-top:15px;">👤 Yeni Kullanıcı</strong>
+        <input type="text" id="new-user" placeholder="Adı">
+        <input type="text" id="new-pass" placeholder="Şifre">
+        <button class="btn-primary" onclick="kullaniciEkle()">KAYDET</button>
         
-        <button class="btn-primary" style="margin-top:20px; background:#f59e0b;" onclick="window.location.href='/excel-indir'">📊 EXCEL RAPORU</button>
+        <button class="btn-primary" style="margin-top:15px; background:#f59e0b;" onclick="window.location.href='/excel-indir'">📊 EXCEL RAPORU</button>
     </div>
 </div>
 
@@ -68,16 +72,15 @@
 </div>
 
 <div class="col-right">
-    <h4>💬 Ekip Sohbeti</h4>
+    <h4 style="border-bottom: 1px solid #f59e0b; padding-bottom: 5px;">💬 Ekip Sohbeti</h4>
     <div id="chat-content"></div>
     <div style="display:flex; gap:5px;">
         <input type="text" id="chat-input" placeholder="Mesaj..." style="margin:0;">
         <button class="btn-primary" style="width:auto; margin:0;" onclick="mesajGonder()">🚀</button>
     </div>
-
-    <div id="admin-summary" style="display:none; margin-top:20px;">
-        <h4>👥 Ekip Portföy Özetleri</h4>
-        <div id="summary-content"></div>
+    <div id="admin-summary" style="display:none; margin-top:15px;">
+        <h4 style="border-bottom: 1px solid var(--buy); padding-bottom: 5px;">👥 Portföy Özetleri</h4>
+        <div id="summary-content" style="font-size:0.75rem;"></div>
     </div>
 </div>
 
@@ -100,7 +103,12 @@
             localStorage.setItem("name", user);
             localStorage.setItem("role", role);
             location.reload();
-        } else alert("Giriş Başarısız! Bilgileri kontrol edin.");
+        } else alert("Giriş başarısız! Bilgileri kontrol edin.");
+    }
+
+    function cikisyap() {
+        localStorage.clear();
+        location.reload();
     }
 
     if(myName && myRole) {
@@ -114,7 +122,7 @@
             document.getElementById('admin-summary').style.display = 'block';
         }
         verileriYenile();
-        setInterval(verileriYenile, 30000);
+        setInterval(verileriYenile, 45000);
     }
 
     async function verileriYenile() {
@@ -138,24 +146,24 @@
                     <div class="card ${isAL ? 'active-buy' : ''}">
                         <div style="display:flex; justify-content:space-between;">
                             <strong>${h.sembol}</strong>
-                            <span>${h.fiyat > 0 ? h.fiyat.toFixed(2) : 'Bekleniyor'}</span>
+                            <span>${h.fiyat > 0 ? h.fiyat.toFixed(2) : 'Bekleniyor...'}</span>
                         </div>
                         ${portHTML}
                         ${myRole === 'kullanici' ? `<div style="display:flex; gap:3px; margin-top:5px;">
-                            <input type="number" id="q-${h.sembol}" placeholder="Adet" style="font-size:10px;" value="${userP?userP.adet:''}">
-                            <input type="number" id="c-${h.sembol}" placeholder="Mly" style="font-size:10px;" value="${userP?userP.maliyet:''}">
-                            <button class="btn-success" style="width:30px; padding:0;" onclick="portGuncelle('${h.sembol}')">💾</button>
-                        </div>` : `<button onclick="hisseSil('${h.sembol}')" style="background:none; color:var(--sell); font-size:10px; border:1px solid var(--sell);">Sinyali Kaldır</button>`}
+                            <input type="number" id="q-${h.sembol}" placeholder="Adet" value="${userP?userP.adet:''}">
+                            <input type="number" id="c-${h.sembol}" placeholder="Mly" value="${userP?userP.maliyet:''}">
+                            <button class="btn-primary" style="width:30px; padding:0; background:var(--buy);" onclick="portGuncelle('${h.sembol}')">💾</button>
+                        </div>` : ''}
                     </div>`;
             });
 
             const chat = document.getElementById('chat-content');
-            chat.innerHTML = data.mesajlar.map(m => `<div class="msg"><strong>${m.user}:</strong> ${m.text}</div>`).join('');
+            chat.innerHTML = data.mesajlar.map(m => `<div style="margin-bottom:8px;"><strong>${m.user}:</strong> ${m.text}</div>`).join('');
             chat.scrollTop = chat.scrollHeight;
 
             if(myRole === 'yonetici') {
                 const summ = document.getElementById('summary-content');
-                summ.innerHTML = Object.entries(data.portfoyler).map(([u, a]) => `<div><strong>${u}:</strong> ${Object.keys(a).length} aktif hisse</div>`).join('');
+                summ.innerHTML = Object.entries(data.portfoyler).map(([u, a]) => `<div>${u}: ${Object.keys(a).length} aktif hisse</div>`).join('');
             }
         } catch(e) {}
     }
@@ -168,7 +176,18 @@
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username, password})
         });
-        alert("Kullanıcı başarıyla eklendi!");
+        alert("Kullanıcı eklendi!");
+    }
+
+    async function hisseEkle() {
+        const h = document.getElementById('h-kod').value.toUpperCase();
+        const hedef = document.getElementById('h-hedef').value;
+        await fetch('/hisse-ekle', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({hisse: h, hedef})
+        });
+        verileriYenile();
     }
 
     async function portGuncelle(h) {
@@ -194,29 +213,9 @@
         verileriYenile();
     }
 
-    async function hisseEkle() {
-        const h = document.getElementById('h-kod').value.toUpperCase();
-        const hedef = document.getElementById('h-hedef').value;
-        await fetch('/hisse-ekle', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({hisse: h, hedef})
-        });
-        verileriYenile();
-    }
-
-    async function hisseSil(h) {
-        await fetch('/hisse-sil', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({hisse: h})
-        });
-        verileriYenile();
-    }
-
     function startMeeting() {
         document.getElementById('meet-btn').style.display = 'none';
-        new JitsiMeetExternalAPI("meet.jit.si", { roomName: "BorsaTerminal_v7", parentNode: document.querySelector('#video-container') });
+        new JitsiMeetExternalAPI("meet.jit.si", { roomName: "BorsaGrup_Terminal_v71", parentNode: document.querySelector('#video-container') });
     }
 </script>
 </body>
