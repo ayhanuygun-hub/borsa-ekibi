@@ -105,6 +105,37 @@ def add_hisse():
     veriyi_kaydet(s)
     return jsonify({"durum": "tamam"})
 
+@app.route('/adet-guncelle', methods=['POST'])
+def update_amount():
+    try:
+        data = request.json
+        user = data.get("kullanici")
+        hisse = data.get("hisse", "").upper()
+        adet = data.get("adet", 0)
+        maliyet = data.get("maliyet", 0)
+
+        sistem = veriyi_yukle()
+        
+        # Eğer portfoyler anahtarı yoksa oluştur
+        if "portfoyler" not in sistem:
+            sistem["portfoyler"] = {}
+            
+        # Kullanıcı anahtarı yoksa oluştur
+        if user not in sistem["portfoyler"]:
+            sistem["portfoyler"][user] = {}
+
+        # Veriyi güncelle
+        sistem["portfoyler"][user][hisse] = {
+            "adet": int(adet) if adet else 0,
+            "maliyet": float(maliyet) if maliyet else 0.0
+        }
+
+        veriyi_kaydet(sistem)
+        return jsonify({"durum": "guncellendi", "hisse": hisse})
+    except Exception as e:
+        print(f"Güncelleme Hatası: {e}")
+        return jsonify({"durum": "hata", "mesaj": str(e)}), 500
+
 @app.route('/kullanici-ekle', methods=['POST'])
 def add_user():
     data = request.json
