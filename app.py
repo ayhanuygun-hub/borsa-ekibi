@@ -1,16 +1,14 @@
-
-
 import os, threading, time, io, json, pandas as pd, requests, yfinance as yf
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from pymongo import MongoClient
-import os
-FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY") # finnhub.io adresinden ücretsiz alın
+
 app = Flask(__name__)
 CORS(app)
 
 # --- AYARLAR ---
 MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
+FINNHUB_API_KEY = os.environ.get("FINNHUB_API_KEY") 
 
 client = MongoClient(MONGO_URI)
 db = client['borsa_takip']
@@ -27,9 +25,11 @@ def veriyi_yukle():
             "kullanicilar": {}, 
             "takip_listesi": {},
             "portfoyler": {}, 
-            "mesajlar": []
+            "mesajlar": [],
+            "grup_sifre": "1234"
         }
         collection.insert_one(data)
+    
     # Eksik anahtar kontrolü
     keys = ["yonetici_sifre", "kullanicilar", "takip_listesi", "portfoyler", "mesajlar", "grup_sifre"]
     updated = False
@@ -43,30 +43,63 @@ def veriyi_yukle():
 def veriyi_kaydet(sistem):
     collection.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# --- VERI CEKME (Finnhub & Yahoo Hibrit) ---
+# --- VERI CEKME (Gelişmiş Yahoo & Finnhub Hibrit) ---
 def fiyatlari_guncelle_loop():
     global fiyat_deposu
+    # Yahoo'yu kandırmak için tarayıcı başlıkları
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    })
+
     while True:
         try:
             sistem = veriyi_yukle()
             semboller = list(sistem.get("takip_listesi", {}).keys())
+            
+            if not semboller:
+                print("Takip listesi boş, veri çekilmiyor...")
+            
             for s in semboller:
-                # 1. Tercih: Finnhub
-                url = f"https://finnhub.io/api/v1/quote?symbol={s}&token={FINNHUB_API_KEY}"
-                r = requests.get(url, timeout=5)
-                if r.status_code == 200 and r.json().get('c', 0) > 0:
-                    fiyat_deposu[s] = round(float(r.json()['c']), 2)
-                else:
-                    # 2. Tercih: Yahoo Finance (Finnhub BIST vermezse)
-                    t = yf.Ticker(s)
-                    h = t.history(period="1d")
-                    if not h.empty:
-                        fiyat_deposu[s] = round(float(h['Close'].iloc[-1]), 2)
-                time.sleep(2)
-        except: pass
-        time.sleep(60)
+                basarili = False
+                
+                # 1. Tercih: Finnhub (API Key varsa)
+                if FINNHUB_API_KEY:
+                    try:
+                        url = f"https://finnhub.io/api/v1/quote?symbol={s}&token={FINNHUB_API_KEY}"
+                        r = session.get(url, timeout=5)
+                        res = r.json()
+                        if r.status_code == 200 and res.get('c', 0) > 0:
+                            fiyat_deposu[s] = round(float(res['c']), 2)
+                            basarili = True
+                            print(f"Finnhub: {s} -> {fiyat_deposu[s]}")
+                    except: pass
+
+                # 2. Tercih: Yahoo Finance (Finnhub başarısızsa veya BIST verisi vermezse)
+                if not basarili:
+                    try:
+                        # Session kullanarak Yahoo engelini aşmaya çalışıyoruz
+                        t = yf.Ticker(s, session=session)
+                        h = t.history(period="1d", interval="1m")
+                        if not h.empty:
+                            fiyat_deposu[s] = round(float(h['Close'].iloc[-1]), 2)
+                            basarili = True
+                            print(f"Yahoo: {s} -> {fiyat_deposu[s]}")
+                        else:
+                            print(f"Yahoo Veri Bulamadı: {s}")
+                    except Exception as e:
+                        print(f"Yahoo Hatası ({s}): {e}")
+                
+                time.sleep(2) # IP ban yememek için bekleme
+
+        except Exception as global_e:
+            print(f"Döngü genel hatası: {global_e}")
+            
+        time.sleep(60) # 1 dakikada bir güncelle
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
+
+# --- ROTALAR ---
 
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
@@ -105,6 +138,18 @@ def add_hisse():
     veriyi_kaydet(s)
     return jsonify({"durum": "tamam"})
 
+@app.route('/hisse-sil', methods=['POST'])
+def delete_hisse():
+    data = request.json
+    s = veriyi_yukle()
+    kod = data.get("hisse", "").upper().strip()
+    if not kod.endswith(".IS"): kod += ".IS"
+    if kod in s["takip_listesi"]:
+        del s["takip_listesi"][kod]
+        veriyi_kaydet(s)
+        return jsonify({"durum": "silindi"})
+    return jsonify({"durum": "hata"}), 404
+
 @app.route('/adet-guncelle', methods=['POST'])
 def update_amount():
     try:
@@ -113,27 +158,13 @@ def update_amount():
         hisse = data.get("hisse", "").upper()
         adet = data.get("adet", 0)
         maliyet = data.get("maliyet", 0)
-
         sistem = veriyi_yukle()
-        
-        # Eğer portfoyler anahtarı yoksa oluştur
-        if "portfoyler" not in sistem:
-            sistem["portfoyler"] = {}
-            
-        # Kullanıcı anahtarı yoksa oluştur
-        if user not in sistem["portfoyler"]:
-            sistem["portfoyler"][user] = {}
-
-        # Veriyi güncelle
-        sistem["portfoyler"][user][hisse] = {
-            "adet": int(adet) if adet else 0,
-            "maliyet": float(maliyet) if maliyet else 0.0
-        }
-
+        if "portfoyler" not in sistem: sistem["portfoyler"] = {}
+        if user not in sistem["portfoyler"]: sistem["portfoyler"][user] = {}
+        sistem["portfoyler"][user][hisse] = {"adet": int(adet) if adet else 0, "maliyet": float(maliyet) if maliyet else 0.0}
         veriyi_kaydet(sistem)
         return jsonify({"durum": "guncellendi", "hisse": hisse})
     except Exception as e:
-        print(f"Güncelleme Hatası: {e}")
         return jsonify({"durum": "hata", "mesaj": str(e)}), 500
 
 @app.route('/kullanici-ekle', methods=['POST'])
