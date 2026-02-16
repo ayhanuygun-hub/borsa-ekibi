@@ -6,7 +6,7 @@ from pymongo import MongoClient
 app = Flask(__name__)
 CORS(app)
 
-# --- AYARLAR ---
+# --- MONGODB ---
 MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
 client = MongoClient(MONGO_URI)
 db = client['borsa_takip']
@@ -20,54 +20,62 @@ def veriyi_yukle():
         data = {"_id": "sistem_verisi", "yonetici_sifre": "admin123", "kullanicilar": {}, "takip_listesi": {}, "portfoyler": {}, "mesajlar": [], "grup_sifre": "1234"}
         collection.insert_one(data)
     # Eksik anahtar tamiri
-    keys = ["yonetici_sifre", "kullanicilar", "takip_listesi", "portfoyler", "mesajlar", "grup_sifre"]
-    for k in keys:
+    for k in ["yonetici_sifre", "kullanicilar", "takip_listesi", "portfoyler", "mesajlar"]:
         if k not in data: data[k] = ({} if k != "mesajlar" else [])
     return data
 
 def veriyi_kaydet(sistem):
     collection.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# --- BİST VERİSİ İÇİN YEDEK MOTOR (Scraper) ---
-def alternatif_fiyat_cek(sembol):
+# --- SÜPER GARANTİCİ FİYAT ÇEKİCİ ---
+def fiyat_cek_zorla(sembol):
     try:
-        # Sembolü temizle (THYAO.IS -> THYAO)
-        s = sembol.replace(".IS", "").upper()
-        # Yahoo Finance'in web sayfasından çekmeyi dene (API yerine)
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sembol}"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        r = requests.get(url, headers=headers, timeout=5)
-        data = r.json()
-        price = data['chart']['result'][0]['meta']['regularMarketPrice']
-        return round(float(price), 2)
+        # Yöntem 1: Doğrudan Yahoo Query API (Tarayıcı taklidi ile)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://finance.yahoo.com/'
+        }
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sembol}?interval=1m&range=1d"
+        r = requests.get(url, headers=headers, timeout=10)
+        
+        if r.status_code == 200:
+            data = r.json()
+            price = data['chart']['result'][0]['meta']['regularMarketPrice']
+            return round(float(price), 2)
+    except Exception as e:
+        print(f"Yöntem 1 hatası ({sembol}): {e}")
+        
+    try:
+        # Yöntem 2: yfinance (Sadece kapanış verisi odaklı)
+        t = yf.Ticker(sembol)
+        # fast_info Render'da daha az hata verir
+        price = t.fast_info['last_price']
+        if price and not pd.isna(price):
+            return round(float(price), 2)
     except:
-        return 0
+        pass
+        
+    return 0
 
 def fiyatlari_guncelle_loop():
     global fiyat_deposu
-    session = requests.Session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0'})
-    
     while True:
         try:
             sistem = veriyi_yukle()
             semboller = list(sistem.get("takip_listesi", {}).keys())
+            
             for s in semboller:
-                # Önce Yahoo Ticker dene
-                try:
-                    t = yf.Ticker(s, session=session)
-                    df = t.history(period="1d", interval="1m")
-                    if not df.empty:
-                        fiyat_deposu[s] = round(float(df['Close'].iloc[-1]), 2)
-                    else:
-                        # Başarısız olursa alternatif motoru çalıştır
-                        alt_price = alternatif_fiyat_cek(s)
-                        if alt_price > 0: fiyat_deposu[s] = alt_price
-                except:
-                    continue
-                time.sleep(1)
-        except: pass
-        time.sleep(60)
+                yeni_fiyat = fiyat_cek_zorla(s)
+                if yeni_fiyat > 0:
+                    fiyat_deposu[s] = yeni_fiyat
+                    print(f"BAŞARILI: {s} -> {yeni_fiyat}")
+                else:
+                    print(f"BAŞARISIZ: {s} için fiyat alınamadı.")
+                time.sleep(2) # IP koruması için bekleme
+        except Exception as e:
+            print(f"Genel Döngü Hatası: {e}")
+        
+        time.sleep(60) # Her dakika yenile
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
@@ -94,7 +102,7 @@ def add_hisse():
     kod = data.get("hisse", "").upper().strip()
     if not kod.endswith(".IS"): kod += ".IS"
     s["takip_listesi"][kod] = float(data.get("hedef", 0))
-    s["mesajlar"].append({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} - Hedef: {data.get('hedef')}", "time": time.strftime("%H:%M")})
+    s["mesajlar"].append({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} paylaşıldı!", "time": time.strftime("%H:%M")})
     veriyi_kaydet(s)
     return jsonify({"durum": "tamam"})
 
@@ -115,7 +123,6 @@ def update_amount():
     data = request.json
     s = veriyi_yukle()
     u, h = data.get("kullanici"), data.get("hisse").upper()
-    if "portfoyler" not in s: s["portfoyler"] = {}
     if u not in s["portfoyler"]: s["portfoyler"][u] = {}
     s["portfoyler"][u][h] = {"adet": int(data.get("adet", 0)), "maliyet": float(data.get("maliyet", 0))}
     veriyi_kaydet(s)
