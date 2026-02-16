@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Terminali v7.7</title>
+    <title>Borsa Terminali v7.8 - Ultra Kalıcı</title>
     <script src="https://meet.jit.si/external_api.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #161e2d; --accent: #38bdf8; --buy: #10b981; --sell: #f43f5e; --text: #f1f5f9; }
@@ -11,10 +11,8 @@
         .col-left { width: 25%; border-right: 1px solid #2d3748; background: #0f172a; overflow-y: auto; }
         .col-main { width: 50%; background: #000; position: relative; }
         .col-right { width: 25%; border-left: 1px solid #2d3748; background: #0f172a; }
-        
         #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; align-items: center; justify-content: center; }
         .setup-card { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--accent); width: 320px; text-align: center; }
-        
         .card { background: var(--card); padding: 12px; border-radius: 10px; margin-bottom: 12px; border-left: 4px solid var(--accent); position: relative; }
         .active-buy { border-left-color: var(--buy); background: #064e3b !important; }
         input, select { width: 100%; padding: 8px; margin: 5px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; box-sizing: border-box; }
@@ -23,10 +21,9 @@
         .btn-success { background: var(--buy); color: white; }
         .btn-danger { background: var(--sell); color: white; margin-top: 8px; font-size: 0.8rem; }
         .btn-logout { background: transparent; color: #94a3b8; border: 1px solid #334155; font-size: 0.7rem; padding: 5px; width: auto; margin-bottom: 10px; }
-
         #chat-box { flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-bottom: 10px; font-size: 0.8rem; }
         .kz-pos { color: var(--buy); font-weight: bold; } .kz-neg { color: var(--sell); font-weight: bold; }
-        .price-tag { font-size: 1.3rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--accent); }
+        .price-tag { font-size: 1.2rem; font-weight: 800; color: #fff; text-shadow: 0 0 5px var(--accent); }
     </style>
 </head>
 <body>
@@ -46,16 +43,15 @@
     <h4 style="border-bottom: 1px solid var(--accent); padding-bottom: 5px;">📉 Sinyaller</h4>
     <div id="stock-list"></div>
     <div id="admin-panel" style="display:none; margin-top:15px; border-top: 2px solid var(--accent); padding-top:15px;">
-        <strong>📢 Sinyal Ekle</strong>
-        <input type="text" id="h-kod" placeholder="Hisse (Örn: THYAO)">
-        <input type="number" id="h-hedef" placeholder="Hedef Fiyat">
-        <button class="btn-success" onclick="hisseEkle()">YAYINLA</button>
+        <strong>📢 Sinyal Yönetimi</strong>
+        <input type="text" id="h-kod" placeholder="Hisse (THYAO)">
+        <input type="number" id="h-hedef" placeholder="Hedef Alım">
+        <button class="btn-success" onclick="hisseEkle()">SİNYALİ YAYINLA</button>
         
         <strong style="display:block; margin-top:15px;">👤 Kullanıcı Tanımla</strong>
         <input type="text" id="new-user" placeholder="Yeni Ad">
         <input type="text" id="new-pass" placeholder="Şifre">
         <button class="btn-primary" onclick="kullaniciEkle()">KAYDET</button>
-        
         <button class="btn-primary" style="margin-top:20px; background:#f59e0b;" onclick="window.location.href='/excel-indir'">📊 EXCEL RAPORU</button>
     </div>
 </div>
@@ -108,7 +104,7 @@
                 let portHTML = "";
                 if(userP && userP.adet > 0) {
                     const kz = (h.fiyat - userP.maliyet) * userP.adet;
-                    portHTML = `<div style="font-size:0.8rem; margin-top:5px; background:rgba(0,0,0,0.5); padding:6px; border-radius:5px;">${userP.adet} ad. | K/Z: <span class="${kz>=0?'kz-pos':'kz-neg'}">${kz.toFixed(1)} TL</span></div>`;
+                    portHTML = `<div style="font-size:0.75rem; margin-top:5px; background:rgba(0,0,0,0.5); padding:6px; border-radius:5px;">${userP.adet} ad. | K/Z: <span class="${kz>=0?'kz-pos':'kz-neg'}">${kz.toFixed(1)} TL</span></div>`;
                 }
                 
                 list.innerHTML += `
@@ -129,7 +125,7 @@
                         }
                     </div>`;
             });
-            document.getElementById('chat-box').innerHTML = data.mesajlar.map(m => `<div><strong>${m.user}:</strong> ${m.text}</div>`).join('');
+            document.getElementById('chat-box').innerHTML = data.mesajlar.map(m => `<div style="margin-bottom:5px;"><strong>${m.user}:</strong> ${m.text}</div>`).join('');
             document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
         } catch(e) {}
     }
@@ -138,19 +134,19 @@
         const username = document.getElementById('new-user').value;
         const password = document.getElementById('new-pass').value;
         await fetch('/kullanici-ekle', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username, password})});
-        alert("Kullanıcı Kaydedildi!");
+        alert("Tamam!");
     }
 
     async function hisseEkle() {
         const h = document.getElementById('h-kod').value.toUpperCase();
         const hedef = document.getElementById('h-hedef').value;
-        if(!h || !hedef) return alert("Eksik veri!");
+        if(!h || !hedef) return alert("Eksik!");
         await fetch('/hisse-ekle', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hisse: h, hedef})});
         verileriYenile();
     }
 
     async function hisseSil(kod) {
-        if(!confirm(kod + " silinecek?")) return;
+        if(!confirm("Silinsin mi?")) return;
         await fetch('/hisse-sil', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({hisse: kod})});
         verileriYenile();
     }
@@ -171,7 +167,7 @@
 
     function startMeeting() {
         document.getElementById('meet-btn').style.display = 'none';
-        new JitsiMeetExternalAPI("meet.jit.si", { roomName: "BorsaGrup_v77", parentNode: document.querySelector('#video-container') });
+        new JitsiMeetExternalAPI("meet.jit.si", { roomName: "BorsaGrup_Terminal_v78", parentNode: document.querySelector('#video-container') });
     }
 </script>
 </body>
