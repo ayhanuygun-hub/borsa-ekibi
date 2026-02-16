@@ -6,7 +6,6 @@ from pymongo import MongoClient
 app = Flask(__name__)
 CORS(app)
 
-# --- MONGODB ---
 MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
 client = MongoClient(MONGO_URI)
 db = client['borsa_takip']
@@ -19,42 +18,29 @@ def veriyi_yukle():
     if not data:
         data = {"_id": "sistem_verisi", "yonetici_sifre": "admin123", "kullanicilar": {}, "takip_listesi": {}, "portfoyler": {}, "mesajlar": [], "grup_sifre": "1234"}
         collection.insert_one(data)
-    # Eksik anahtar tamiri
-    for k in ["yonetici_sifre", "kullanicilar", "takip_listesi", "portfoyler", "mesajlar"]:
-        if k not in data: data[k] = ({} if k != "mesajlar" else [])
     return data
 
 def veriyi_kaydet(sistem):
     collection.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# --- SÜPER GARANTİCİ FİYAT ÇEKİCİ ---
-def fiyat_cek_zorla(sembol):
+def fiyat_cek_mekanizmasi(sembol):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
     try:
-        # Yöntem 1: Doğrudan Yahoo Query API (Tarayıcı taklidi ile)
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://finance.yahoo.com/'
-        }
+        # YÖNTEM 1: Yfinance üzerinden hızlı bilgi
+        t = yf.Ticker(sembol)
+        # Borsa kapalıyken 'fast_info' veya 'history'den son fiyatı al
+        df = t.history(period="1d")
+        if not df.empty:
+            return round(float(df['Close'].iloc[-1]), 2)
+            
+        # YÖNTEM 2: Doğrudan Yahoo JSON API (Proxy/Bot engelini aşmak için)
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sembol}?interval=1m&range=1d"
         r = requests.get(url, headers=headers, timeout=10)
-        
         if r.status_code == 200:
-            data = r.json()
-            price = data['chart']['result'][0]['meta']['regularMarketPrice']
-            return round(float(price), 2)
-    except Exception as e:
-        print(f"Yöntem 1 hatası ({sembol}): {e}")
-        
-    try:
-        # Yöntem 2: yfinance (Sadece kapanış verisi odaklı)
-        t = yf.Ticker(sembol)
-        # fast_info Render'da daha az hata verir
-        price = t.fast_info['last_price']
-        if price and not pd.isna(price):
-            return round(float(price), 2)
+            val = r.json()['chart']['result'][0]['meta']['regularMarketPrice']
+            return round(float(val), 2)
     except:
-        pass
-        
+        return 0
     return 0
 
 def fiyatlari_guncelle_loop():
@@ -63,23 +49,20 @@ def fiyatlari_guncelle_loop():
         try:
             sistem = veriyi_yukle()
             semboller = list(sistem.get("takip_listesi", {}).keys())
-            
             for s in semboller:
-                yeni_fiyat = fiyat_cek_zorla(s)
-                if yeni_fiyat > 0:
-                    fiyat_deposu[s] = yeni_fiyat
-                    print(f"BAŞARILI: {s} -> {yeni_fiyat}")
+                fiyat = fiyat_cek_mekanizmasi(s)
+                if fiyat > 0:
+                    fiyat_deposu[s] = fiyat
+                    print(f"BAŞARILI: {s} -> {fiyat}")
                 else:
-                    print(f"BAŞARISIZ: {s} için fiyat alınamadı.")
-                time.sleep(2) # IP koruması için bekleme
+                    print(f"UYARI: {s} için fiyat alınamadı (Borsa kapalı olabilir).")
+                time.sleep(1) 
         except Exception as e:
-            print(f"Genel Döngü Hatası: {e}")
-        
-        time.sleep(60) # Her dakika yenile
+            print(f"Hata: {e}")
+        time.sleep(60)
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
-# --- ROTALAR ---
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
 
@@ -100,9 +83,13 @@ def add_hisse():
     data = request.json
     s = veriyi_yukle()
     kod = data.get("hisse", "").upper().strip()
-    if not kod.endswith(".IS"): kod += ".IS"
+    
+    # AKILLI SEMBOL DÜZELTME
+    # Eğer sembolde nokta yoksa ve 5 karakterden kısaysa (BİST hissesi varsayalım) .IS ekle
+    if "." not in kod and len(kod) <= 5:
+        kod += ".IS"
+    
     s["takip_listesi"][kod] = float(data.get("hedef", 0))
-    s["mesajlar"].append({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} paylaşıldı!", "time": time.strftime("%H:%M")})
     veriyi_kaydet(s)
     return jsonify({"durum": "tamam"})
 
@@ -111,9 +98,10 @@ def delete_hisse():
     data = request.json
     s = veriyi_yukle()
     kod = data.get("hisse", "").upper().strip()
-    full_kod = kod if kod.endswith(".IS") else kod + ".IS"
-    if full_kod in s["takip_listesi"]:
-        del s["takip_listesi"][full_kod]
+    if "." not in kod and len(kod) <= 5: kod += ".IS"
+    
+    if kod in s["takip_listesi"]:
+        del s["takip_listesi"][kod]
         veriyi_kaydet(s)
         return jsonify({"durum": "silindi"})
     return jsonify({"durum": "hata"}), 404
