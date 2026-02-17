@@ -2,37 +2,33 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Terminali v9.0 - Broker Entegrasyonu</title>
+    <title>Borsa Terminali v9.2 - Stabil Yapı</title>
+    <script src="https://meet.jit.si/external_api.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #161e2d; --accent: #38bdf8; --buy: #10b981; --sell: #f43f5e; --text: #f1f5f9; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .col { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+        .col { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 12px; }
+        .col-left { width: 20%; border-right: 1px solid #2d3748; background: #0f172a; overflow-y: auto; }
+        .col-main { width: 60%; background: #000; position: relative; padding: 0; }
+        .col-right { width: 20%; border-left: 1px solid #2d3748; background: #0f172a; overflow-y: auto; }
         
-        /* 3 SÜTUNLU YAPI */
-        .col-left { width: 20%; border-right: 1px solid #2d3748; background: #0f172a; overflow-y: auto; padding: 10px; }
-        .col-main { width: 60%; background: #000; position: relative; }
-        .col-right { width: 20%; border-left: 1px solid #2d3748; background: #0f172a; overflow-y: auto; padding: 10px; }
-
-        #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 3000; display: flex; align-items: center; justify-content: center; }
         .setup-card { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--accent); width: 320px; text-align: center; }
-        
-        .card { background: var(--card); padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); font-size: 0.85rem; }
+        .card { background: var(--card); padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); }
         .active-buy { border-left-color: var(--buy); background: #064e3b !important; }
         
-        input, select { width: 100%; padding: 6px; margin: 4px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; font-size: 0.8rem; }
-        button { cursor: pointer; padding: 8px; border: none; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; font-size: 0.8rem; }
+        input, select { width: 100%; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; font-size: 0.8rem; }
+        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; }
         .btn-primary { background: var(--accent); color: #000; }
         .btn-success { background: var(--buy); color: white; }
         .btn-danger { background: var(--sell); color: white; }
-        
-        /* IFRAME KONTEYNER */
-        #broker-frame { width: 100%; height: 100%; border: none; }
-        .overlay-nav { position: absolute; top: 10px; left: 10px; display: flex; gap: 10px; z-index: 100; }
-        .nav-btn { background: rgba(22, 30, 45, 0.9); color: white; padding: 5px 15px; border-radius: 20px; border: 1px solid var(--accent); width: auto; }
 
-        #chat-box { flex-grow: 1; height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; font-size: 0.75rem; margin-bottom: 10px; border: 1px solid #334155; }
+        .overlay-nav { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; gap: 8px; z-index: 1000; }
+        .nav-btn { background: rgba(22, 30, 45, 0.95); color: white; padding: 6px 15px; border-radius: 20px; border: 1px solid var(--accent); width: auto; font-size: 0.75rem; }
+
+        #chat-box { flex-grow: 1; min-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; font-size: 0.75rem; border: 1px solid #334155; }
         .price-tag { font-size: 1.1rem; font-weight: 800; color: #fff; }
-        
+
         /* MODAL */
         .modal { display: none; position: fixed; z-index: 2500; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 350px; border: 1px solid var(--accent); }
@@ -42,24 +38,24 @@
 
 <div id="setup-layer">
     <div class="setup-card">
-        <h3>📊 Ekip Terminali v9</h3>
+        <h3>📊 Ekip Terminali v9.2</h3>
         <input type="text" id="setup-name" placeholder="Kullanıcı Adı">
         <input type="password" id="setup-pass" placeholder="Şifre">
         <select id="setup-role"><option value="kullanici">Kullanıcı</option><option value="yonetici">Yönetici</option></select>
-        <button class="btn-primary" onclick="sistemiKur()">SİSTEME GİR</button>
+        <button class="btn-primary" onclick="sistemiKur()">GİRİŞ</button>
     </div>
 </div>
 
 <div id="user-modal" class="modal">
     <div class="modal-content">
-        <h3 style="margin-top:0;">👥 Kullanıcılar</h3>
-        <div id="user-modal-list"></div>
-        <button class="btn-primary" onclick="closeModal()">KAPAT</button>
+        <h3>👥 Kullanıcılar</h3>
+        <div id="user-modal-list" style="max-height:300px; overflow-y:auto;"></div>
+        <button class="btn-primary" style="margin-top:15px;" onclick="closeModal()">Kapat</button>
     </div>
 </div>
 
 <div class="col col-left">
-    <button style="background:transparent; color:#666; font-size:9px;" onclick="cikisyap()">🚪 ÇIKIŞ</button>
+    <button style="background:transparent; color:#666; font-size:9px; border:1px solid #333;" onclick="cikisyap()">🚪 ÇIKIŞ</button>
     <h4>📉 Sinyaller</h4>
     <div id="stock-list"></div>
     
@@ -69,30 +65,35 @@
         <input type="number" id="h-hedef" placeholder="Hedef">
         <button class="btn-success" onclick="hisseEkle()">YAYINLA</button>
         <button class="btn-primary" onclick="openModal()">KULLANICI YÖNETİMİ</button>
-        <button style="background:orange;" onclick="window.location.href='/excel-indir'">📊 EXCEL</button>
+        <button style="background:orange; color:black;" onclick="window.location.href='/excel-indir'">📊 EXCEL RAPORU</button>
     </div>
 </div>
 
 <div class="col col-main">
     <div class="overlay-nav">
-        <button class="nav-btn" onclick="changeBroker('https://hissetrader.a1capital.com.tr/')">A1 Capital</button>
-        <button class="nav-btn" onclick="changeBroker('https://www.tradingview.com/chart/')">Grafik (TV)</button>
-        <button class="nav-btn" onclick="toggleMeeting()">🎥 Toplantı</button>
+        <button class="nav-btn" onclick="openBroker()">🚀 A1 Capital (Yeni Pencere)</button>
+        <button class="nav-btn" onclick="showSection('chart')">📉 Canlı Grafik</button>
+        <button class="nav-btn" onclick="showSection('meet')">🎥 Toplantı</button>
     </div>
     
-    <iframe id="broker-frame" src="https://hissetrader.a1capital.com.tr/"></iframe>
-    
-    <div id="video-container" style="display:none; width:100%; height:100%; position:absolute; inset:0; background:#000;"></div>
+    <div id="chart-section" style="width:100%; height:100%;">
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+            <div id="tradingview_main" style="height:100%;width:100%"></div>
+        </div>
+    </div>
+
+    <div id="meet-section" style="display:none; width:100%; height:100%; background:#000;">
+        <div id="jitsi-container" style="height:100%; width:100%;"></div>
+    </div>
 </div>
 
 <div class="col col-right">
-    <h4>💼 İşlem Kayıt</h4>
+    <h4>💼 Portföy Kayıt</h4>
     <div class="card" style="border-left-color: var(--buy);">
-        <small>Hızlı Portföy Güncelle</small>
-        <input type="text" id="p-hisse" placeholder="Hisse (Örn: THYAO)">
+        <input type="text" id="p-hisse" placeholder="Hisse">
         <input type="number" id="p-adet" placeholder="Adet">
         <input type="number" id="p-maliyet" placeholder="Maliyet">
-        <button class="btn-success" onclick="hizliPortfoy()">KAYDET</button>
+        <button class="btn-success" onclick="hizliPortfoy()">💾 KAYDET</button>
     </div>
 
     <h4>💬 Sohbet <button onclick="tabloTemizle('chat')" style="width:auto; font-size:9px; background:none; color:var(--sell); border:1px solid #333; float:right;">Sil</button></h4>
@@ -101,18 +102,16 @@
         <input type="text" id="chat-inp" placeholder="Mesaj..." style="margin:0;">
         <button class="btn-primary" style="width:auto; margin:0;" onclick="mesajGonder()">🚀</button>
     </div>
-
-    <div id="admin-view" style="display:none; margin-top:10px;">
-        <h4>🕒 Loglar</h4>
-        <div id="log-box" style="font-size: 0.7rem; background:rgba(0,0,0,0.2); height: 100px; overflow-y: auto; padding:5px; border-radius:5px;"></div>
-    </div>
 </div>
 
+<script src="https://s3.tradingview.com/tv.js"></script>
 <script>
     let myName = localStorage.getItem("name");
     let myRole = localStorage.getItem("role");
+    let jitsiApi = null;
     let userListData = [];
 
+    // --- SİSTEM ---
     async function sistemiKur() {
         const user = document.getElementById('setup-name').value;
         const pass = document.getElementById('setup-pass').value;
@@ -126,95 +125,100 @@
     if(myName && myRole) { document.getElementById('setup-layer').style.display='none'; baslat(); }
 
     function baslat() {
-        if(myRole === 'yonetici') {
-            document.getElementById('admin-panel').style.display = 'block';
-            document.getElementById('admin-view').style.display = 'block';
-            loglariGetir(); setInterval(loglariGetir, 30000);
-        }
+        if(myRole === 'yonetici') document.getElementById('admin-panel').style.display = 'block';
+        initTradingView("BIST:THYAO");
         verileriYenile(); setInterval(verileriYenile, 30000);
         chatYenile(); setInterval(chatYenile, 3000);
     }
 
-    // --- BROKER YÖNETİMİ ---
-    function changeBroker(url) {
-        document.getElementById('video-container').style.display = 'none';
-        document.getElementById('broker-frame').style.display = 'block';
-        document.getElementById('broker-frame').src = url;
+    // --- PANEL YÖNETİMİ ---
+    function showSection(type) {
+        document.getElementById('chart-section').style.display = type === 'chart' ? 'block' : 'none';
+        document.getElementById('meet-section').style.display = type === 'meet' ? 'block' : 'none';
+        if(type === 'meet' && !jitsiApi) startMeeting();
     }
 
-    function toggleMeeting() {
-        const v = document.getElementById('video-container');
-        const b = document.getElementById('broker-frame');
-        if(v.style.display === 'none') {
-            v.style.display = 'block'; b.style.display = 'none';
-            if(!v.innerHTML) { // Jitsi başlatılmamışsa başlat
-                new JitsiMeetExternalAPI("meet.jit.si", { roomName: "BorsaTerminal_v9", parentNode: v });
-            }
-        } else {
-            v.style.display = 'none'; b.style.display = 'block';
-        }
+    function openBroker() {
+        // A1 Capital Iframe engellediği için "Popup" olarak açıyoruz.
+        window.open('https://hissetrader.a1capital.com.tr/', 'A1Capital', 'width=1200,height=800');
     }
 
-    // --- VERİ İŞLEMLERİ ---
+    function initTradingView(symbol) {
+        new TradingView.widget({
+            "autosize": true, "symbol": symbol, "interval": "D", "timezone": "Etc/UTC",
+            "theme": "dark", "style": "1", "locale": "tr", "toolbar_bg": "#f1f3f6",
+            "enable_publishing": false, "hide_top_toolbar": false, "container_id": "tradingview_main"
+        });
+    }
+
+    function startMeeting() {
+        jitsiApi = new JitsiMeetExternalAPI("meet.jit.si", {
+            roomName: "BorsaTerminal_v92_Global",
+            parentNode: document.getElementById('jitsi-container'),
+            height: "100%", width: "100%"
+        });
+    }
+
+    // --- VERİ ---
     async function verileriYenile() {
-        try {
-            const r = await fetch('/borsa-verileri');
-            const d = await r.json();
-            userListData = d.kullanicilar;
-            const list = document.getElementById('stock-list');
-            list.innerHTML = "";
-            d.hisseler.forEach(h => {
-                list.innerHTML += `
-                    <div class="card ${h.durum === 'AL' ? 'active-buy' : ''}" onclick="document.getElementById('p-hisse').value='${h.sembol}'">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong>${h.sembol}</strong>
-                            <span class="price-tag">${h.fiyat > 0 ? h.fiyat.toFixed(2) : '...'}</span>
-                        </div>
-                        <div style="font-size:0.7rem; opacity:0.6;">Hedef: ${h.hedef}</div>
-                        ${myRole === 'yonetici' ? `<button class="btn-danger" style="font-size:8px; padding:2px;" onclick="hisseSil('${h.sembol}')">SİL</button>` : ''}
-                    </div>`;
-            });
-        } catch(e) {}
+        const r = await fetch('/borsa-verileri');
+        const d = await r.json();
+        userListData = d.kullanicilar;
+        const list = document.getElementById('stock-list');
+        list.innerHTML = "";
+        d.hisseler.forEach(h => {
+            list.innerHTML += `
+                <div class="card ${h.durum === 'AL' ? 'active-buy' : ''}" onclick="initTradingView('BIST:${h.sembol}'); document.getElementById('p-hisse').value='${h.sembol}';">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>${h.sembol}</strong>
+                        <span class="price-tag">${h.fiyat > 0 ? h.fiyat.toFixed(2) : '...'}</span>
+                    </div>
+                    <div style="font-size:0.7rem; opacity:0.6;">Hedef: ${h.hedef}</div>
+                    ${myRole === 'yonetici' ? `<button class="btn-danger" style="font-size:8px; padding:2px; margin-top:5px;" onclick="hisseSil('${h.sembol}')">SİNYALİ SİL</button>` : ''}
+                </div>`;
+        });
     }
 
     async function chatYenile() {
         const r = await fetch('/sohbet-getir');
         const m = await r.json();
-        document.getElementById('chat-box').innerHTML = m.map(msg => `<div><strong>${msg.user}:</strong> ${msg.text}</div>`).join('');
+        const box = document.getElementById('chat-box');
+        const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 50;
+        box.innerHTML = m.map(msg => `<div><strong>${msg.user}:</strong> ${msg.text}</div>`).join('');
+        if(isAtBottom) box.scrollTop = box.scrollHeight;
     }
 
     async function hizliPortfoy() {
-        const h = document.getElementById('p-hisse').value.toUpperCase();
-        const a = document.getElementById('p-adet').value;
-        const m = document.getElementById('p-maliyet').value;
-        if(!h || !a) return alert("Eksik veri!");
+        const h = document.getElementById('p-hisse').value.toUpperCase(), a = document.getElementById('p-adet').value, m = document.getElementById('p-maliyet').value;
+        if(!h || !a) return alert("Hisse ve Adet girilmeli!");
         const r = await fetch('/adet-guncelle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kullanici:myName, hisse:h, adet:a, maliyet:m})});
-        if(r.ok) { alert("İşlem Portföye Kaydedildi!"); verileriYenile(); }
+        if(r.ok) { alert("Kaydedildi!"); verileriYenile(); }
     }
 
-    // --- DİĞER STANDART JS FONKSİYONLARI ---
     async function mesajGonder() {
-        const i = document.getElementById('chat-inp');
+        const i = document.getElementById('chat-inp'); if(!i.value) return;
         await fetch('/mesaj-gonder', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user:myName, text:i.value})});
         i.value = ""; chatYenile();
     }
+
+    // MODAL
     function openModal() {
-        document.getElementById('user-modal-list').innerHTML = userListData.map(u => `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${u}</span><button class="btn-danger" style="width:auto; padding:2px 10px;" onclick="kullaniciSil('${u}')">SİL</button></div>`).join('');
-        document.getElementById('user-modal').style.display = 'flex';
+        document.getElementById('user-modal-list').innerHTML = userListData.map(u => `<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>${u}</span><button class="btn-danger" style="width:auto; padding:3px 10px;" onclick="kullaniciSil('${u}')">SİL</button></div>`).join('');
+        document.getElementById('user-modal').style.display='flex';
     }
-    function closeModal() { document.getElementById('user-modal').style.display = 'none'; }
+    function closeModal() { document.getElementById('user-modal').style.display='none'; }
     async function kullaniciSil(u) { await fetch('/kullanici-sil', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u})}); verileriYenile(); closeModal(); }
     async function hisseEkle() {
-        const h = document.getElementById('h-kod').value.toUpperCase();
-        const hedef = document.getElementById('h-hedef').value;
+        const h = document.getElementById('h-kod').value.toUpperCase(), hedef = document.getElementById('h-hedef').value;
         await fetch('/hisse-ekle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hisse:h, hedef})});
         verileriYenile();
     }
     async function hisseSil(k) { if(confirm("Silinsin mi?")) { await fetch('/hisse-sil', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hisse:k})}); verileriYenile(); } }
-    async function loglariGetir() {
-        const r = await fetch('/loglari-getir');
-        const l = await r.json();
-        document.getElementById('log-box').innerHTML = l.map(log => `<div>${log.time} - ${log.user}</div>`).join('');
+    async function tabloTemizle(t) { if(confirm("Temizlensin mi?")) { await fetch('/tablo-temizle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tablo:t})}); location.reload(); } }
+    async function kullaniciEkle() {
+        const u = document.getElementById('new-user').value, p = document.getElementById('new-pass').value;
+        await fetch('/kullanici-ekle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})});
+        alert("Eklendi!"); verileriYenile();
     }
 </script>
 </body>

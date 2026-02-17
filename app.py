@@ -30,7 +30,7 @@ def veriyi_yukle():
 def veriyi_kaydet(sistem):
     veriler_col.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# --- FİYAT GÜNCELLEME DÖNGÜSÜ ---
+# --- FİYAT DÖNGÜSÜ ---
 def fiyat_cek_zorla(sembol):
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
@@ -60,7 +60,6 @@ def fiyatlari_guncelle_loop():
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
 # --- ROTALAR ---
-
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
 
@@ -98,6 +97,39 @@ def send_msg():
     chat_col.insert_one({"user": data['user'], "text": data['text'], "time": datetime.now().strftime("%H:%M")})
     return jsonify({"durum": "ok"})
 
+@app.route('/hisse-ekle', methods=['POST'])
+def add_hisse():
+    data = request.json
+    s = veriyi_yukle()
+    kod = data.get("hisse", "").upper().strip()
+    if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
+    s["takip_listesi"][kod] = float(data.get("hedef", 0))
+    veriyi_kaydet(s)
+    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} eklendi.", "time": datetime.now().strftime("%H:%M")})
+    return jsonify({"durum": "tamam"})
+
+@app.route('/hisse-sil', methods=['POST'])
+def delete_hisse():
+    data = request.json
+    s = veriyi_yukle()
+    kod = data.get("hisse", "").upper().strip()
+    if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
+    if kod in s["takip_listesi"]:
+        del s["takip_listesi"][kod]
+        veriyi_kaydet(s)
+        return jsonify({"durum": "silindi"})
+    return jsonify({"durum": "hata"}), 404
+
+@app.route('/adet-guncelle', methods=['POST'])
+def update_amount():
+    data = request.json
+    s = veriyi_yukle()
+    u, h = data.get("kullanici"), data.get("hisse").upper()
+    if u not in s["portfoyler"]: s["portfoyler"][u] = {}
+    s["portfoyler"][u][h] = {"adet": int(data.get("adet", 0)), "maliyet": float(data.get("maliyet", 0))}
+    veriyi_kaydet(s)
+    return jsonify({"durum": "ok"})
+
 @app.route('/kullanici-sil', methods=['POST'])
 def delete_user():
     data = request.json
@@ -121,40 +153,6 @@ def clear_table():
     target = request.json.get("tablo")
     if target == "chat": chat_col.delete_many({})
     elif target == "logs": log_col.delete_many({})
-    return jsonify({"durum": "ok"})
-
-# --- STANDART ROTALAR ---
-@app.route('/hisse-ekle', methods=['POST'])
-def add_hisse():
-    data = request.json
-    s = veriyi_yukle()
-    kod = data.get("hisse", "").upper().strip()
-    if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
-    s["takip_listesi"][kod] = float(data.get("hedef", 0))
-    veriyi_kaydet(s)
-    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 YENİ SİNYAL: {kod.replace('.IS','')} eklendi.", "time": datetime.now().strftime("%H:%M")})
-    return jsonify({"durum": "tamam"})
-
-@app.route('/hisse-sil', methods=['POST'])
-def delete_hisse():
-    data = request.json
-    s = veriyi_yukle()
-    kod = data.get("hisse", "").upper().strip()
-    if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
-    if kod in s["takip_listesi"]:
-        del s["takip_listesi"][kod]
-        veriyi_kaydet(s)
-        return jsonify({"durum": "silindi"})
-    return jsonify({"durum": "hata"}), 404
-
-@app.route('/adet-guncelle', methods=['POST'])
-def update_amount():
-    data = request.json
-    s = veriyi_yukle()
-    u, h = data.get("kullanici"), data.get("hisse").upper()
-    if u not in s["portfoyler"]: s["portfoyler"][u] = {}
-    s["portfoyler"][u][h] = {"adet": int(data.get("adet", 0)), "maliyet": float(data.get("maliyet", 0))}
-    veriyi_kaydet(s)
     return jsonify({"durum": "ok"})
 
 @app.route('/kullanici-ekle', methods=['POST'])
