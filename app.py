@@ -9,15 +9,13 @@ CORS(app)
 
 # --- MONGODB ---
 MONGO_URI = "mongodb+srv://BorsaTakip_db_user:BrsTkp2026@cluster0.naoqjo9.mongodb.net/?appName=Cluster0"
-try:
-    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
-    db = client['borsa_takip']
-    veriler_col = db['veriler']
-    chat_col = db['chat_logs']
-    log_col = db['connection_logs']
-    client.admin.command('ping') # Bağlantıyı test et
-except Exception as e:
-    print(f"KRİTİK HATA: MongoDB'ye bağlanılamadı: {e}")
+
+# Bağlantıyı "lazy" (ihtiyaç anında) yapıyoruz ki başlangıçta kilitlenmesin
+client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000, connect=False)
+db = client['borsa_takip']
+veriler_col = db['veriler']
+chat_col = db['chat_logs']
+log_col = db['connection_logs']
 
 fiyat_deposu = {}
 
@@ -28,46 +26,47 @@ def veriyi_yukle():
             data = {"_id": "sistem_verisi", "yonetici_sifre": "admin123", "kullanicilar": {}, "takip_listesi": {}, "portfoyler": {}, "fiyat_yedek": {}}
             veriler_col.insert_one(data)
         return data
-    except:
+    except Exception as e:
+        print(f"Veri yükleme hatası: {e}")
         return {"kullanicilar": {}, "takip_listesi": {}, "portfoyler": {}, "fiyat_yedek": {}}
 
 def veriyi_kaydet(sistem):
     try:
         veriler_col.replace_one({"_id": "sistem_verisi"}, sistem)
-    except Exception as e:
-        print(f"Kaydetme Hatası: {e}")
+    except: pass
 
-# --- FİYAT DÖNGÜSÜ (Geliştirilmiş Hata Yönetimi) ---
+# --- FİYAT DÖNGÜSÜ ---
 def fiyat_cek_zorla(sembol):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+    headers = {'User-Agent': 'Mozilla/5.0'}
     try:
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{sembol}?interval=1m&range=1d"
-        r = requests.get(url, headers=headers, timeout=8)
+        r = requests.get(url, headers=headers, timeout=5)
         if r.status_code == 200:
             return round(float(r.json()['chart']['result'][0]['meta']['regularMarketPrice']), 2)
-    except: pass
-    return 0
+    except: return 0
 
 def fiyatlari_guncelle_loop():
     global fiyat_deposu
     while True:
         try:
-            sistem = veriyi_yukle()
-            semboller = list(sistem.get("takip_listesi", {}).keys())
-            for s in semboller:
-                f = fiyat_cek_zorla(s)
+            s = veriyi_yukle()
+            semboller = list(s.get("takip_listesi", {}).keys())
+            for sembol in semboller:
+                f = fiyat_cek_zorla(sembol)
                 if f > 0:
-                    fiyat_deposu[s] = f
-                    sistem["fiyat_yedek"][s] = f
-                time.sleep(1.5) # Render ban koruması için ideal süre
-            veriyi_kaydet(sistem)
-        except Exception as e:
-            print(f"Döngü hatası: {e}")
+                    fiyat_deposu[sembol] = f
+                    s["fiyat_yedek"][sembol] = f
+                time.sleep(2)
+            veriyi_kaydet(s)
+        except: pass
         time.sleep(60)
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
 # --- ROTALAR ---
+
+@app.route('/health') # Render'ın canlılık kontrolü için
+def health(): return "OK", 200
 
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
@@ -77,14 +76,12 @@ def login():
     data = request.json
     s = veriyi_yukle()
     user, sifre, rol = data.get("user"), data.get("sifre"), data.get("rol")
-    success = False
-    if rol == "yonetici":
-        if sifre == s.get("yonetici_sifre"): success = True
-    else:
-        if user in s.get("kullanicilar", {}) and s["kullanicilar"][user] == sifre: success = True
+    success = (rol == "yonetici" and sifre == s.get("yonetici_sifre")) or \
+              (user in s.get("kullanicilar", {}) and s["kullanicilar"][user] == sifre)
     
     if success:
-        log_col.insert_one({"user": user, "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "role": rol})
+        try: log_col.insert_one({"user": user, "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "role": rol})
+        except: pass
         return jsonify({"durum": "basarili"})
     return jsonify({"durum": "hata"}), 401
 
@@ -99,8 +96,7 @@ def get_data():
             anlik = fiyat_deposu.get(sembol) or s.get("fiyat_yedek", {}).get(sembol, 0)
             veriler.append({"sembol": sembol.replace(".IS",""), "fiyat": anlik, "hedef": hedef, "durum": "AL" if 0 < anlik <= hedef else "BEKLE"})
         return jsonify({"hisseler": veriler, "portfoyler": s.get("portfoyler", {}), "kullanicilar": list(s.get("kullanicilar", {}).keys()), "mesajlar": mesajlar[::-1]})
-    except:
-        return jsonify({"hisseler": [], "mesajlar": []}), 500
+    except: return jsonify({"hisseler": [], "mesajlar": []})
 
 @app.route('/mesaj-gonder', methods=['POST'])
 def send_msg():
@@ -108,14 +104,22 @@ def send_msg():
     chat_col.insert_one({"user": data['user'], "text": data['text'], "time": datetime.now().strftime("%H:%M")})
     return jsonify({"durum": "ok"})
 
+@app.route('/kullanici-ekle', methods=['POST'])
+def add_user():
+    data = request.json
+    s = veriyi_yukle()
+    s["kullanicilar"][data['username']] = data['password']
+    veriyi_kaydet(s)
+    return jsonify({"durum": "ok"})
+
 @app.route('/kullanici-sil', methods=['POST'])
 def delete_user():
     data = request.json
     s = veriyi_yukle()
     user = data.get("username")
-    if user in s.get("kullanicilar", {}):
+    if user in s["kullanicilar"]:
         del s["kullanicilar"][user]
-        if user in s.get("portfoyler", {}): del s["portfoyler"][user]
+        if user in s["portfoyler"]: del s["portfoyler"][user]
         veriyi_kaydet(s)
         return jsonify({"durum": "silindi"})
     return jsonify({"durum": "hata"}), 404
@@ -140,8 +144,7 @@ def add_hisse():
     kod = data.get("hisse", "").upper().strip()
     if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
     s["takip_listesi"][kod] = float(data.get("hedef", 0))
-    # Otomatik Mesaj
-    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} listeye eklendi.", "time": datetime.now().strftime("%H:%M")})
+    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} eklendi.", "time": datetime.now().strftime("%H:%M")})
     veriyi_kaydet(s)
     return jsonify({"durum": "tamam"})
 
@@ -168,14 +171,6 @@ def update_amount():
     veriyi_kaydet(s)
     return jsonify({"durum": "ok"})
 
-@app.route('/kullanici-ekle', methods=['POST'])
-def add_user():
-    data = request.json
-    s = veriyi_yukle()
-    s["kullanicilar"][data['username']] = data['password']
-    veriyi_kaydet(s)
-    return jsonify({"durum": "ok"})
-
 @app.route('/excel-indir')
 def export():
     s = veriyi_yukle()
@@ -191,5 +186,6 @@ def export():
     return send_file(out, download_name="Ekip_Portfoy.xlsx", as_attachment=True)
 
 if __name__ == '__main__':
+    # Render için en kritik kısım burası: Dinamik port binding
     port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
