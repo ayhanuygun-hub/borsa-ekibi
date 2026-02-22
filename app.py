@@ -30,7 +30,6 @@ def veriyi_yukle():
 def veriyi_kaydet(sistem):
     veriler_col.replace_one({"_id": "sistem_verisi"}, sistem)
 
-# --- FİYAT DÖNGÜSÜ ---
 def fiyat_cek_zorla(sembol):
     headers = {'User-Agent': 'Mozilla/5.0'}
     try:
@@ -59,7 +58,6 @@ def fiyatlari_guncelle_loop():
 
 threading.Thread(target=fiyatlari_guncelle_loop, daemon=True).start()
 
-# --- ROTALAR ---
 @app.route('/')
 def ana_sayfa(): return send_file('index.html')
 
@@ -68,9 +66,7 @@ def login():
     data = request.json
     s = veriyi_yukle()
     user, sifre, rol = data.get("user"), data.get("sifre"), data.get("rol")
-    success = False
-    if rol == "yonetici" and sifre == s.get("yonetici_sifre"): success = True
-    elif user in s.get("kullanicilar", {}) and s["kullanicilar"][user] == sifre: success = True
+    success = (rol == "yonetici" and sifre == s.get("yonetici_sifre")) or (user in s.get("kullanicilar", {}) and s["kullanicilar"][user] == sifre)
     if success:
         log_col.insert_one({"user": user, "time": datetime.now().strftime("%d/%m/%Y %H:%M:%S"), "role": rol})
         return jsonify({"durum": "basarili"})
@@ -79,11 +75,13 @@ def login():
 @app.route('/borsa-verileri')
 def get_data():
     s = veriyi_yukle()
+    mesajlar = list(chat_col.find().sort("_id", -1).limit(40))
+    for m in mesajlar: m["_id"] = str(m["_id"])
     veriler = []
     for sembol, hedef in s.get("takip_listesi", {}).items():
         anlik = fiyat_deposu.get(sembol) or s.get("fiyat_yedek", {}).get(sembol, 0)
         veriler.append({"sembol": sembol.replace(".IS",""), "fiyat": anlik, "hedef": hedef, "durum": "AL" if 0 < anlik <= hedef else "BEKLE"})
-    return jsonify({"hisseler": veriler, "portfoyler": s.get("portfoyler", {}), "kullanicilar": list(s.get("kullanicilar", {}).keys())})
+    return jsonify({"hisseler": veriler, "portfoyler": s.get("portfoyler", {}), "kullanicilar": list(s.get("kullanicilar", {}).keys()), "mesajlar": mesajlar[::-1]})
 
 @app.route('/sohbet-getir')
 def get_chat():
@@ -105,7 +103,7 @@ def add_hisse():
     if not kod.endswith(".IS") and len(kod) <= 5: kod += ".IS"
     s["takip_listesi"][kod] = float(data.get("hedef", 0))
     veriyi_kaydet(s)
-    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} eklendi.", "time": datetime.now().strftime("%H:%M")})
+    chat_col.insert_one({"user": "SİSTEM", "text": f"📢 SİNYAL: {kod.replace('.IS','')} listeye eklendi.", "time": datetime.now().strftime("%H:%M")})
     return jsonify({"durum": "tamam"})
 
 @app.route('/hisse-sil', methods=['POST'])
