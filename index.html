@@ -2,24 +2,26 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Terminali v9.4 - Hassas Onarım</title>
+    <title>Borsa Ekip Terminali v10.0</title>
     <script src="https://meet.jit.si/external_api.js"></script>
     <style>
         :root { --bg: #0b0f19; --card: #161e2d; --accent: #38bdf8; --buy: #10b981; --sell: #f43f5e; --text: #f1f5f9; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .col { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 12px; }
+        
         .col-left { width: 20%; border-right: 1px solid #2d3748; background: #0f172a; overflow-y: auto; }
         .col-main { width: 60%; background: #000; position: relative; padding: 0; }
         .col-right { width: 20%; border-left: 1px solid #2d3748; background: #0f172a; overflow-y: auto; }
         
         #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 3000; display: flex; align-items: center; justify-content: center; }
         .setup-card { background: var(--card); padding: 30px; border-radius: 12px; border: 1px solid var(--accent); width: 320px; text-align: center; }
+        
         .card { background: var(--card); padding: 10px; border-radius: 8px; margin-bottom: 10px; border-left: 4px solid var(--accent); transition: 0.2s; cursor: pointer; }
         .card:hover { background: #1e293b; border-left-width: 8px; }
         .active-buy { border-left-color: var(--buy); background: #064e3b !important; }
         
-        input, select { width: 100%; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; font-size: 0.8rem; }
-        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; }
+        input, select { width: 100%; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #2d3748; background: #0b0f19; color: white; font-size: 0.8rem; box-sizing: border-box; }
+        button { cursor: pointer; padding: 10px; border: none; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; transition: 0.3s; }
         .btn-primary { background: var(--accent); color: #000; }
         .btn-success { background: var(--buy); color: white; }
         .btn-danger { background: var(--sell); color: white; }
@@ -28,43 +30,45 @@
         .nav-btn { background: rgba(22, 30, 45, 0.95); color: white; padding: 8px 15px; border-radius: 20px; border: 1px solid var(--accent); width: auto; font-size: 0.75rem; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .nav-btn:hover { background: var(--accent); color: #000; }
 
-        #chat-box { flex-grow: 1; min-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; font-size: 0.75rem; border: 1px solid #334155; }
+        #chat-box { flex-grow: 1; min-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 8px; font-size: 0.75rem; border: 1px solid #334155; margin-bottom: 10px; }
         .price-tag { font-size: 1.1rem; font-weight: 800; color: #fff; }
 
         .modal { display: none; position: fixed; z-index: 2500; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 350px; border: 1px solid var(--accent); }
+        
+        .realize-kar { border-left-color: gold; background: rgba(255, 215, 0, 0.1); }
     </style>
 </head>
 <body>
 
 <div id="setup-layer">
     <div class="setup-card">
-        <h3>📊 Ekip Terminali v9.4</h3>
+        <h3>📊 Ekip Terminali v10</h3>
         <input type="text" id="setup-name" placeholder="Kullanıcı Adı">
         <input type="password" id="setup-pass" placeholder="Şifre">
-        <select id="setup-role"><option value="kullanici">Kullanıcı</option><option value="yonetici">Yönetici</option></select>
+        <select id="setup-role"><option value="kullanici">Kullanıcı Girişi</option><option value="yonetici">Yönetici Girişi</option></select>
         <button class="btn-primary" onclick="sistemiKur()">SİSTEMİ BAŞLAT</button>
     </div>
 </div>
 
 <div id="user-modal" class="modal">
     <div class="modal-content">
-        <h3>👥 Kullanıcı Listesi</h3>
+        <h3 style="margin-top:0;">👥 Kullanıcı Listesi</h3>
         <div id="user-modal-list" style="max-height:300px; overflow-y:auto;"></div>
-        <button class="btn-primary" style="margin-top:15px;" onclick="closeModal()">Kapat</button>
+        <button class="btn-primary" style="margin-top:15px;" onclick="closeModal()">KAPAT</button>
     </div>
 </div>
 
 <div class="col col-left">
     <button style="background:transparent; color:#666; font-size:9px; border:1px solid #333;" onclick="cikisyap()">🚪 GÜVENLİ ÇIKIŞ</button>
-    <h4 style="margin-top:15px;">📈 Hisse Takibi</h4>
+    <h4 style="margin-top:15px;">📈 Sinyaller</h4>
     <div id="stock-list"></div>
     
-    <div id="admin-panel" style="display:none; border-top: 1px solid var(--accent); padding-top:10px;">
-        <strong>📢 Sinyal Yönetimi</strong>
+    <div id="admin-panel" style="display:none; border-top: 1px solid var(--accent); padding-top:10px; margin-top:15px;">
+        <strong>📢 Yönetim Paneli</strong>
         <input type="text" id="h-kod" placeholder="Hisse (Örn: EREGL)">
-        <input type="number" id="h-hedef" placeholder="Hedef Alım">
-        <button class="btn-success" onclick="hisseEkle()">YAYINLA</button>
+        <input type="number" id="h-hedef" placeholder="Hedef Fiyat">
+        <button class="btn-success" onclick="hisseEkle()">SİNYALİ YAYINLA</button>
         <button class="btn-primary" onclick="openModal()">KULLANICI YÖNETİMİ</button>
         <button style="background:orange; color:black;" onclick="window.location.href='/excel-indir'">📊 EXCEL RAPORU</button>
     </div>
@@ -72,29 +76,42 @@
 
 <div class="col col-main">
     <div class="overlay-nav">
-        <button class="nav-btn" onclick="openBroker()">🚀 A1 Capital İşlem (trade)</button>
+        <button class="nav-btn" onclick="openBroker()">🚀 A1 Capital İşlem (Trade)</button>
         <button class="nav-btn" onclick="openMeeting()">🎥 Toplantıyı Başlat</button>
     </div>
-    
     <div id="tradingview_container" style="width:100%; height:100%;">
         <div id="tradingview_widget_container" style="width:100%; height:100%;"></div>
     </div>
 </div>
 
 <div class="col col-right">
-    <h4>💼 Portföy Kaydı</h4>
-    <div class="card" style="border-left-color: var(--buy);">
-        <input type="text" id="p-hisse" placeholder="Hisse Seçin" readonly style="background:#0b0f19; opacity:0.7;">
-        <input type="number" id="p-adet" placeholder="Alınan Adet">
-        <input type="number" id="p-maliyet" placeholder="Maliyet">
-        <button class="btn-success" onclick="hizliPortfoy()">💾 KAYDET</button>
+    <div class="card" style="border-left-color: var(--accent);">
+        <h4 style="margin:0 0 10px 0;">📊 İşlem Girişi</h4>
+        <select id="p-tip" style="background: #1e293b; color: #38bdf8; font-weight: bold;">
+            <option value="ALIS">🟢 HİSSE ALDIM</option>
+            <option value="SATIS">🔴 HİSSE SATTIM</option>
+        </select>
+        <input type="text" id="p-hisse" placeholder="Hisse Seçin" readonly style="background:#0b0f19; opacity:0.8;">
+        <input type="number" id="p-adet" placeholder="İşlem Adedi">
+        <input type="number" id="p-fiyat" placeholder="İşlem Fiyatı">
+        <button id="islem-btn" class="btn-success" onclick="islemKaydet()">İŞLEMİ ONAYLA</button>
+    </div>
+
+    <div id="realize-area" class="card realize-kar" style="display:none;">
+        <small>Toplam Gerçekleşen Kâr/Zarar:</small>
+        <div id="total-realized" style="font-size:1.2rem; font-weight:bold; color:gold;">0.00 TL</div>
     </div>
 
     <h4>💬 Sohbet <button onclick="tabloTemizle('chat')" style="width:auto; font-size:9px; background:none; color:var(--sell); border:1px solid #333; float:right;">Sil</button></h4>
     <div id="chat-box"></div>
-    <div style="display:flex; gap:5px;">
+    <div style="display:flex; gap:5px; margin-bottom:15px;">
         <input type="text" id="chat-inp" placeholder="Mesaj..." style="margin:0;">
         <button class="btn-primary" style="width:auto; margin:0; padding:0 15px;" onclick="mesajGonder()">🚀</button>
+    </div>
+
+    <div id="admin-view" style="display:none;">
+        <h4>🕒 Sistem Logları <button onclick="tabloTemizle('logs')" style="width:auto; font-size:9px; background:none; color:var(--sell); border:1px solid #333; float:right;">Sıfırla</button></h4>
+        <div id="log-box" style="font-size: 0.7rem; background:rgba(0,0,0,0.2); height: 100px; overflow-y: auto; padding:5px; border-radius:5px;"></div>
     </div>
 </div>
 
@@ -104,12 +121,13 @@
     let myRole = localStorage.getItem("role");
     let userListData = [];
 
+    // --- SİSTEM GİRİŞ ---
     async function sistemiKur() {
         const user = document.getElementById('setup-name').value;
         const pass = document.getElementById('setup-pass').value;
         const role = document.getElementById('setup-role').value;
         const r = await fetch('/giris-yap', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user, sifre:pass, rol:role})});
-        if(r.ok) { localStorage.setItem("name", user); localStorage.setItem("role", role); location.reload(); } else alert("Giriş başarısız!");
+        if(r.ok) { localStorage.setItem("name", user); localStorage.setItem("role", role); location.reload(); } else alert("Giriş bilgileri hatalı!");
     }
 
     function cikisyap() { localStorage.clear(); location.reload(); }
@@ -117,19 +135,21 @@
     if(myName && myRole) { document.getElementById('setup-layer').style.display='none'; baslat(); }
 
     function baslat() {
-        if(myRole === 'yonetici') document.getElementById('admin-panel').style.display = 'block';
-        updateChart("THYAO"); // Başlangıç grafiği
+        if(myRole === 'yonetici') {
+            document.getElementById('admin-panel').style.display = 'block';
+            document.getElementById('admin-view').style.display = 'block';
+            loglariGetir(); setInterval(loglariGetir, 30000);
+        }
+        updateChart("BIST:THYAO");
         verileriYenile(); setInterval(verileriYenile, 30000);
         chatYenile(); setInterval(chatYenile, 3000);
     }
 
-    // --- KRİTİK: DİNAMİK GRAFİK GÜNCELLEME ---
+    // --- DİNAMİK GRAFİK ---
     function updateChart(symbol) {
-        // Container'ı temizle (Hata almamak için şart)
         const container = document.getElementById('tradingview_container');
         container.innerHTML = '<div id="tradingview_widget_container" style="width:100%; height:100%;"></div>';
         
-        // Sembol formatını ayarla
         let formattedSymbol = symbol.includes(":") ? symbol : "BIST:" + symbol;
 
         new TradingView.widget({
@@ -148,16 +168,10 @@
     }
 
     // --- BAĞLANTILAR ---
-    function openBroker() {
-        window.open('https://trade.a1capital.com.tr/', 'BrokerWindow', 'width=1200,height=800');
-    }
+    function openBroker() { window.open('https://trade.a1capital.com.tr/', 'Broker', 'width=1200,height=800'); }
+    function openMeeting() { window.open('https://meet.jit.si/BorsaTerminal_Ozel_Ekip', '_blank'); }
 
-    function openMeeting() {
-        const room = "BorsaTerminal_Ekip_Ozel";
-        window.open('https://meet.jit.si/' + room, '_blank');
-    }
-
-    // --- VERİ İŞLEMLERİ ---
+    // --- VERİ YENİLEME ---
     async function verileriYenile() {
         try {
             const r = await fetch('/borsa-verileri');
@@ -177,6 +191,11 @@
                         ${myRole === 'yonetici' ? `<button class="btn-danger" style="font-size:8px; padding:2px; margin-top:5px;" onclick="hisseSil('${h.sembol}')">SİNYALİ SİL</button>` : ''}
                     </div>`;
             });
+
+            if(d.realize_kar[myName]) {
+                document.getElementById('realize-area').style.display = 'block';
+                document.getElementById('total-realized').innerText = d.realize_kar[myName].toFixed(2) + " TL";
+            }
         } catch(e) {}
     }
 
@@ -184,22 +203,47 @@
         const r = await fetch('/sohbet-getir');
         const m = await r.json();
         const box = document.getElementById('chat-box');
+        const isAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 50;
         box.innerHTML = m.map(msg => `<div><strong>${msg.user}:</strong> ${msg.text}</div>`).join('');
+        if(isAtBottom) box.scrollTop = box.scrollHeight;
     }
 
-    async function hizliPortfoy() {
-        const h = document.getElementById('p-hisse').value, a = document.getElementById('p-adet').value, m = document.getElementById('p-maliyet').value;
-        if(!h || !a) return alert("Önce listeden bir hisseye tıklayın!");
-        await fetch('/adet-guncelle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kullanici:myName, hisse:h, adet:a, maliyet:m})});
-        alert("Portföy Güncellendi!"); verileriYenile();
+    // --- İŞLEM KAYIT ---
+    async function islemKaydet() {
+        const tip = document.getElementById('p-tip').value;
+        const h = document.getElementById('p-hisse').value;
+        const a = document.getElementById('p-adet').value;
+        const f = document.getElementById('p-fiyat').value;
+
+        if(!h || !a || !f) return alert("Hisse seçin ve tüm alanları doldurun!");
+
+        const btn = document.getElementById('islem-btn');
+        btn.disabled = true; btn.innerText = "Kaydediliyor...";
+
+        const r = await fetch('/islem-kaydet', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ kullanici: myName, hisse: h, adet: a, fiyat: f, tip: tip })
+        });
+
+        if(r.ok) {
+            alert("İşlem Başarıyla Kaydedildi!");
+            document.getElementById('p-adet').value = "";
+            document.getElementById('p-fiyat').value = "";
+            verileriYenile();
+        } else {
+            const err = await r.json();
+            alert("Hata: " + err.mesaj);
+        }
+        btn.disabled = false; btn.innerText = "İŞLEMİ ONAYLA";
     }
 
+    // --- YÖNETİCİ FONKSİYONLARI ---
     async function mesajGonder() {
         const i = document.getElementById('chat-inp'); if(!i.value) return;
         await fetch('/mesaj-gonder', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user:myName, text:i.value})});
         i.value = ""; chatYenile();
     }
-
     function openModal() {
         document.getElementById('user-modal-list').innerHTML = userListData.map(u => `<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>${u}</span><button class="btn-danger" style="width:auto; padding:3px 10px;" onclick="kullaniciSil('${u}')">SİL</button></div>`).join('');
         document.getElementById('user-modal').style.display='flex';
@@ -213,10 +257,15 @@
     }
     async function hisseSil(k) { if(confirm("Silinsin mi?")) { await fetch('/hisse-sil', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hisse:k})}); verileriYenile(); } }
     async function tabloTemizle(t) { if(confirm("Emin misiniz?")) { await fetch('/tablo-temizle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tablo:t})}); location.reload(); } }
+    async function loglariGetir() {
+        const r = await fetch('/loglari-getir');
+        const l = await r.json();
+        document.getElementById('log-box').innerHTML = l.map(log => `<div>${log.time} - ${log.user}</div>`).join('');
+    }
     async function kullaniciEkle() {
         const u = document.getElementById('new-user').value, p = document.getElementById('new-pass').value;
         await fetch('/kullanici-ekle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})});
-        alert("Kullanıcı Eklendi!"); verileriYenile();
+        alert("Kullanıcı eklendi."); verileriYenile();
     }
 </script>
 </body>
