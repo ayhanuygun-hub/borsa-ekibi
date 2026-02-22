@@ -2,6 +2,7 @@ flask
 flask-cors
 pandas
 openpyxl
+xlsxwriter
 gunicorn
 pymongo[srv]
 dnspython
