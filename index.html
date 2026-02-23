@@ -2,13 +2,14 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Borsa Ekip Terminali v10.6</title>
+    <title>Borsa Terminali v10.7</title>
     <style>
         :root { --bg: #0b0f19; --card: #161e2d; --accent: #38bdf8; --buy: #10b981; --sell: #f43f5e; --text: #f1f5f9; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; height: 100vh; overflow: hidden; }
         .container { display: flex; width: 100%; height: 100%; }
         .col { display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 10px; border-right: 1px solid #232d3f; }
         
+        /* YENİ YERLEŞİM: Sinyaller ve İşlem ön planda, Grafik sağda geniş */
         .col-sinyaller { width: 22%; min-width: 260px; background: #0f172a; overflow-y: auto; }
         .col-islem { width: 23%; min-width: 280px; background: #0f172a; overflow-y: auto; }
         .col-grafik { width: 55%; background: #000; padding: 0; position: relative; }
@@ -16,7 +17,8 @@
         @media (max-width: 1100px) {
             body { overflow-y: auto; height: auto; }
             .container { flex-direction: column; }
-            .col { width: 100% !important; border-right: none; border-bottom: 1px solid #232d3f; height: 500px; }
+            .col { width: 100% !important; border-right: none; height: auto; min-height: 450px; }
+            .col-grafik { height: 500px; order: 3; }
         }
 
         #setup-layer { position: fixed; inset: 0; background: var(--bg); z-index: 5000; display: flex; align-items: center; justify-content: center; }
@@ -38,15 +40,15 @@
         .modal { display: none; position: fixed; z-index: 6000; inset: 0; background: rgba(0,0,0,0.9); align-items: center; justify-content: center; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 12px; width: 350px; border: 1px solid var(--accent); }
         
-        /* Grafiğin üzerine tıklamayı engelleyen koruma katmanı */
-        #chart-protector { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+        .nav-link-btn { background: rgba(22, 30, 45, 0.9); color: #38bdf8; border: 1px solid #38bdf8; padding: 4px 10px; border-radius: 15px; font-size: 10px; text-decoration: none; font-weight: bold; display: inline-block; }
+        .nav-link-btn:hover { background: #38bdf8; color: #000; }
     </style>
 </head>
 <body>
 
 <div id="setup-layer">
     <div class="setup-card">
-        <h3>📊 Ekip Terminali v10.6</h3>
+        <h3>📊 Ekip Terminali v10.7</h3>
         <input type="text" id="setup-name" placeholder="Kullanıcı Adı">
         <input type="password" id="setup-pass" placeholder="Şifre">
         <select id="setup-role"><option value="kullanici">Kullanıcı</option><option value="yonetici">Yönetici</option></select>
@@ -64,7 +66,7 @@
             <button class="btn-success" style="padding:5px;" onclick="kullaniciEkle()">Ekle</button>
         </div>
         <div id="user-modal-list" style="margin-top:15px; max-height:200px; overflow-y:auto;"></div>
-        <button class="btn-primary" onclick="closeModal()">Kapat</button>
+        <button class="btn-primary" onclick="closeModal()">Pencereyi Kapat</button>
     </div>
 </div>
 
@@ -77,6 +79,7 @@
         <div id="stock-list"></div>
         
         <div id="admin-panel" style="display:none; border-top:1px solid var(--accent); margin-top:10px; padding-top:10px;">
+            <strong>Yönetici Paneli</strong>
             <input type="text" id="h-kod" placeholder="Hisse (EREGL)">
             <input type="number" id="h-hedef" placeholder="Hedef Alım">
             <button class="btn-success" onclick="hisseEkle()">YAYINLA</button>
@@ -92,11 +95,11 @@
             <input type="text" id="p-hisse" placeholder="Soldan Hisse Seçin" readonly>
             <input type="number" id="p-adet" placeholder="Adet">
             <input type="number" id="p-fiyat" placeholder="Fiyat">
-            <button id="islem-btn" class="btn-success" onclick="islemKaydet()">ONAYLA</button>
+            <button id="islem-btn" class="btn-success" onclick="islemKaydet()">İŞLEMİ ONAYLA</button>
         </div>
 
-        <div id="realize-area" style="display:none; margin-bottom:10px; text-align:center;">
-            <small style="color:gold;">Realize Kar:</small> <strong id="total-realized" style="color:#fff;">0</strong>
+        <div id="realize-area" style="display:none; margin-bottom:10px; background:rgba(255,215,0,0.1); padding:10px; border-radius:8px; text-align:center;">
+            <small style="color:gold;">Realize Kar:</small> <br><strong id="total-realized" style="color:#fff; font-size:1.2rem;">0</strong>
         </div>
 
         <h4>💬 Sohbet</h4>
@@ -108,13 +111,18 @@
     </div>
 
     <div class="col col-grafik">
-        <div style="position:absolute; top:8px; left:8px; z-index:100; display:flex; gap:5px;">
-            <button id="ext-btn" class="nav-btn" style="background:rgba(22,30,45,0.9); color:white; border:1px solid #38bdf8; padding:4px 10px; border-radius:15px; font-size:10px;" onclick="window.open('https://trade.a1capital.com.tr/')">🚀 A1 TRADE</button>
-            <button id="meet-btn" class="nav-btn" style="background:rgba(22,30,45,0.9); color:white; border:1px solid #6366f1; padding:4px 10px; border-radius:15px; font-size:10px;" onclick="window.open('https://meet.jit.si/BorsaEkipTerminali')">🎥 MEET</button>
-            <button id="pop-btn" class="nav-btn" style="background:rgba(22,30,45,0.9); color:gold; border:1px solid gold; padding:4px 10px; border-radius:15px; font-size:10px;" onclick="chartOut()">🔗 DIŞARIDA AÇ</button>
+        <div style="position:absolute; top:8px; left:8px; z-index:100; display:flex; gap:5px; flex-wrap: wrap;">
+            <a href="javascript:void(0)" class="nav-link-btn" onclick="window.open('https://trade.a1capital.com.tr/')">🚀 A1 TRADE</a>
+            <a href="javascript:void(0)" class="nav-link-btn" style="border-color: gold; color: gold;" id="investing-link" onclick="openInvesting()">🔗 INVESTING</a>
+            <a href="javascript:void(0)" class="nav-link-btn" style="border-color: #6366f1; color: #6366f1;" id="tv-link" onclick="openTV()">📊 TV GRAFİK</a>
+            <a href="javascript:void(0)" class="nav-link-btn" style="border-color: white; color: white;" onclick="window.open('https://meet.jit.si/BorsaEkipTerminali')">🎥 MEET</a>
         </div>
-        <div id="chart-protector"></div>
-        <div id="chart-div" style="width:100%; height:100%;"></div>
+        <div id="chart-div" style="width:100%; height:100%; display: flex; align-items: center; justify-content: center; color: #444;">
+            <div id="placeholder-text" style="text-align: center;">
+                <p>Grafik yüklemek için soldan bir hisseye tıklayın.</p>
+                <small>Hata alırsanız yukarıdaki butonlarla dışarıda açabilirsiniz.</small>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -135,23 +143,28 @@
 
     function baslat() {
         if(myRole === 'yonetici') document.getElementById('admin-panel').style.display = 'block';
-        updateChart("THYAO");
         verileriYenile(); setInterval(verileriYenile, 30000);
         chatYenile(); setInterval(chatYenile, 3000);
     }
 
-    // --- KRİTİK: GÜVENLİ GRAFİK YÜKLEYİCİ ---
+    // --- GRAFİK YÖNETİMİ ---
     function updateChart(symbol) {
-        currentSymbol = symbol;
+        currentSymbol = symbol.replace(".IS", "");
         const div = document.getElementById('chart-div');
-        const formatted = "BIST:" + symbol.replace(".IS", "");
         
-        // TradingView'ı Iframe olarak manuel gömüyoruz (JS kütüphanesi hatasını önler)
-        div.innerHTML = `<iframe src="https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${formatted}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=f1f3f6&studies=[]&theme=dark&style=1&timezone=Europe%2FIstanbul" 
-            style="width: 100%; height: 100%; margin: 0; padding: 0;" frameborder="0" allowtransparency="true" scrolling="no" allowfullscreen></iframe>`;
+        // Investing.com Widget denemesi (BIST formatında)
+        div.innerHTML = `<iframe src="https://tr.investing.com/common/technical_chart.php?symbol=${currentSymbol}&type=line&width=100%&height=100%" 
+            style="width: 100%; height: 100%;" frameborder="0" allowtransparency="true"></iframe>`;
+            
+        document.getElementById('investing-link').innerText = `🔗 INVESTING (${currentSymbol})`;
+        document.getElementById('tv-link').innerText = `📊 TV (${currentSymbol})`;
     }
 
-    function chartOut() {
+    function openInvesting() {
+        window.open(`https://tr.investing.com/equities/${currentSymbol.toLowerCase()}`, '_blank');
+    }
+
+    function openTV() {
         window.open(`https://tr.tradingview.com/chart/?symbol=BIST:${currentSymbol}`, '_blank');
     }
 
@@ -167,7 +180,7 @@
                 list.innerHTML += `<div class="card ${h.durum==='AL'?'active-buy':''}" onclick="updateChart('${h.sembol}'); document.getElementById('p-hisse').value='${h.sembol}';">
                     <div style="display:flex; justify-content:space-between;"><strong>${h.sembol}</strong><span class="price-tag">${h.fiyat>0?h.fiyat.toFixed(2):'...'}</span></div>
                     <div style="font-size:0.7rem; opacity:0.6;">Hedef: ${h.hedef}</div>
-                    ${myRole==='yonetici'?`<button class="btn-danger" style="font-size:8px; padding:2px; margin-top:5px;" onclick="hisseSil('${h.sembol}')">SİL</button>`:''}
+                    ${myRole==='yonetici'?`<button class="btn-danger" style="font-size:8px; padding:2px; margin-top:5px;" onclick="hisseSil('${h.sembol}')">SİNYALİ SİL</button>`:''}
                 </div>`;
             });
             if(d.realize_kar[myName]) {
@@ -185,9 +198,9 @@
 
     async function islemKaydet() {
         const tip = document.getElementById('p-tip').value, h = document.getElementById('p-hisse').value, a = document.getElementById('p-adet').value, f = document.getElementById('p-fiyat').value;
-        if(!h || !a || !f) return alert("Hisse ve alanları doldurun!");
+        if(!h || !a || !f) return alert("Alanları doldurun!");
         const r = await fetch('/islem-kaydet', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({kullanici:myName, hisse:h, adet:a, fiyat:f, tip:tip})});
-        if(r.ok) { alert("Kaydedildi!"); verileriYenile(); } else { const e = await r.json(); alert(e.mesaj); }
+        if(r.ok) { alert("İşlem Başarılı!"); verileriYenile(); } else { const e = await r.json(); alert(e.mesaj); }
     }
 
     async function mesajGonder() {
@@ -205,7 +218,7 @@
     async function kullaniciEkle() {
         const u = document.getElementById('new-user').value, p = document.getElementById('new-pass').value;
         await fetch('/kullanici-ekle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p})});
-        alert("Eklendi!"); verileriYenile(); closeModal();
+        alert("Tamam!"); verileriYenile(); closeModal();
     }
     async function hisseEkle() {
         const h = document.getElementById('h-kod').value.toUpperCase(), hedef = document.getElementById('h-hedef').value;
@@ -213,7 +226,7 @@
         verileriYenile();
     }
     async function hisseSil(k) { if(confirm("Sil?")) { await fetch('/hisse-sil', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({hisse:k})}); verileriYenile(); } }
-    async function tabloTemizle(t) { if(confirm("Sil?")) { await fetch('/tablo-temizle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tablo:t})}); location.reload(); } }
+    async function tabloTemizle(t) { if(confirm("Temizlensin mi?")) { await fetch('/tablo-temizle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tablo:t})}); location.reload(); } }
 </script>
 </body>
 </html>
